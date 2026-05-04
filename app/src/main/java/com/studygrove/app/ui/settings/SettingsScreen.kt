@@ -25,7 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.studygrove.app.data.model.SettingsState
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.components.PixelPanel
@@ -148,7 +150,14 @@ private fun SettingSwitchRow(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                Text(
+                    title,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Text(description, color = GroveInk.copy(alpha = 0.7f))
             }
             Switch(checked = checked, onCheckedChange = onCheckedChange)

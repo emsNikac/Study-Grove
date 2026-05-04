@@ -145,10 +145,53 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean) {
                 drawRect(Color.White.copy(alpha = if (isNight) 0.25f else 0.9f), topLeft = Offset(1.5f * u + drift, 2.3f * u), size = Size(4 * u, u))
                 drawRect(Color.White.copy(alpha = if (isNight) 0.18f else 0.75f), topLeft = Offset(7.5f * u - drift, 3.1f * u), size = Size(3 * u, u))
                 drawRect(Color(0xFF7AA558), topLeft = Offset(0f, size.height - 28f), size = Size(size.width, 28f))
-                drawRect(GroveClay, topLeft = Offset(3 * u, size.height - 74f), size = Size(4.4f * u, 46f))
-                drawRect(Color(0xFF8D4C3B), topLeft = Offset(2.4f * u, size.height - 94f), size = Size(5.6f * u, 22f))
-                drawRect(GroveCream, topLeft = Offset(4.4f * u, size.height - 55f), size = Size(u, 27f))
-                drawRect(GroveInk.copy(alpha = 0.25f), topLeft = Offset(6.2f * u, size.height - 58f), size = Size(0.8f * u, 0.8f * u))
+                val houseLevel = gameData.house.level.coerceIn(1, 5)
+                val houseWidth = (3.8f + houseLevel * 0.9f) * u
+                val houseHeight = 36f + houseLevel * 5f
+                val houseX = 2.7f * u
+                val houseY = size.height - 28f - houseHeight
+                val wall = when (houseLevel) {
+                    1 -> GroveClay
+                    2 -> Color(0xFFD48655)
+                    3 -> Color(0xFFB96E4A)
+                    4 -> Color(0xFFC77A58)
+                    else -> Color(0xFFD19864)
+                }
+                val roof = when (houseLevel) {
+                    1 -> Color(0xFF8D4C3B)
+                    2 -> Color(0xFF7F483A)
+                    3 -> Color(0xFF5E5A45)
+                    4 -> Color(0xFF6B4052)
+                    else -> Color(0xFF4F5C74)
+                }
+                drawRect(GroveInk.copy(alpha = 0.18f), topLeft = Offset(houseX + 0.4f * u, size.height - 30f), size = Size(houseWidth, 5f))
+                drawRect(wall.copy(alpha = 0.65f), topLeft = Offset(houseX + 0.8f * u, houseY + 0.5f * u), size = Size(houseWidth, houseHeight))
+                drawRect(wall, topLeft = Offset(houseX, houseY), size = Size(houseWidth, houseHeight))
+                drawRect(roof, topLeft = Offset(houseX - 0.8f * u, houseY - 1.25f * u), size = Size(houseWidth + 1.6f * u, 1.55f * u))
+                drawRect(roof.copy(alpha = 0.82f), topLeft = Offset(houseX - 0.2f * u, houseY - 2.1f * u), size = Size(houseWidth - 0.2f * u, 1.05f * u))
+                drawRect(GroveCream, topLeft = Offset(houseX + 1.6f * u, houseY + houseHeight - 28f), size = Size(1.05f * u, 28f))
+                drawRect(GroveInk.copy(alpha = 0.35f), topLeft = Offset(houseX + 2.35f * u, houseY + houseHeight - 16f), size = Size(0.35f * u, 0.35f * u))
+                drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth - 1.55f * u, houseY + 1.25f * u), size = Size(0.95f * u, 0.95f * u))
+                if (houseLevel >= 2) {
+                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth - 3.1f * u, houseY + 1.25f * u), size = Size(0.95f * u, 0.95f * u))
+                    drawRect(Color(0xFF6B3D32), topLeft = Offset(houseX + houseWidth - 1.25f * u, houseY - 2.9f * u), size = Size(0.65f * u, 1.4f * u))
+                }
+                if (houseLevel >= 3) {
+                    drawRect(wall.copy(alpha = 0.9f), topLeft = Offset(houseX + houseWidth - 0.1f * u, houseY + 0.55f * u), size = Size(1.7f * u, houseHeight - 6f))
+                    drawRect(roof.copy(alpha = 0.85f), topLeft = Offset(houseX + houseWidth - 0.5f * u, houseY - 0.6f * u), size = Size(2.5f * u, 1.2f * u))
+                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth + 0.45f * u, houseY + 1.9f * u), size = Size(0.7f * u, 0.7f * u))
+                }
+                if (houseLevel >= 4) {
+                    drawRect(wall.copy(alpha = 0.95f), topLeft = Offset(houseX + 2.95f * u, houseY - 1.9f * u), size = Size(2.2f * u, 2.5f * u))
+                    drawRect(roof, topLeft = Offset(houseX + 2.55f * u, houseY - 2.7f * u), size = Size(3f * u, 0.85f * u))
+                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + 3.6f * u, houseY - 1.2f * u), size = Size(0.75f * u, 0.75f * u))
+                }
+                if (houseLevel >= 5) {
+                    repeat(4) { index ->
+                        drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + (3.2f + index * 0.75f) * u, houseY + houseHeight - 1.35f * u), size = Size(0.42f * u, 0.95f * u))
+                    }
+                    drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth - 2.3f * u, houseY + houseHeight - 2.1f * u), size = Size(1.35f * u, 0.7f * u))
+                }
                 if (isNight) {
                     repeat(7) { index ->
                         drawRect(Color(0xFFFFF4BD), topLeft = Offset((index * 2 + 1) * u, (index % 3 + 1) * u), size = Size(4f, 4f))

@@ -9,6 +9,7 @@ import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
 import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.HouseObject
+import com.studygrove.app.data.model.HouseObjectType
 import com.studygrove.app.data.model.InventoryItem
 import com.studygrove.app.data.model.PlacementResult
 import com.studygrove.app.data.model.PlacementTarget
@@ -339,6 +340,11 @@ class StudyGroveRepository(
         localDataSource.update { data ->
             val hasItem = data.settings.testModeEnabled || data.inventory.any { it.shopItemId == item.id && it.quantity > 0 }
             val occupied = data.house.objects.any { it.x == x && it.y == y }
+            val bedPlacementProblem = if (item.houseObjectType == HouseObjectType.BED) {
+                data.house.objects.bedPlacementProblem(x, y)
+            } else {
+                null
+            }
             when {
                 x !in 0 until data.house.width || y !in 0 until data.house.height -> {
                     result = PlacementResult(false, "That spot is outside the room.")
@@ -350,6 +356,10 @@ class StudyGroveRepository(
                 }
                 !hasItem -> {
                     result = PlacementResult(false, "You do not have ${item.name} in your inventory.")
+                    data
+                }
+                bedPlacementProblem != null -> {
+                    result = PlacementResult(false, bedPlacementProblem)
                     data
                 }
                 else -> {
@@ -479,6 +489,34 @@ class StudyGroveRepository(
                 item
             }
         }
+
+    private fun List<HouseObject>.bedPlacementProblem(x: Int, y: Int): String? {
+        val existingBeds = filter { it.type == HouseObjectType.BED }.map { it.x to it.y }.toSet()
+        val newTile = x to y
+        val hasAdjacentBed = listOf(x - 1 to y, x + 1 to y, x to (y - 1), x to (y + 1)).any { it in existingBeds }
+        if (!hasAdjacentBed) return null
+
+        val allBeds = existingBeds + newTile
+        val connectedBeds = mutableSetOf<Pair<Int, Int>>()
+        val frontier = ArrayDeque<Pair<Int, Int>>()
+        frontier.add(newTile)
+        while (frontier.isNotEmpty()) {
+            val tile = frontier.removeFirst()
+            if (!connectedBeds.add(tile)) continue
+            val (tileX, tileY) = tile
+            listOf(tileX - 1 to tileY, tileX + 1 to tileY, tileX to (tileY - 1), tileX to (tileY + 1))
+                .filter { it in allBeds && it !in connectedBeds }
+                .forEach(frontier::add)
+        }
+
+        val formsRow = connectedBeds.map { it.second }.distinct().size == 1
+        val formsColumn = connectedBeds.map { it.first }.distinct().size == 1
+        return if (formsRow || formsColumn) {
+            null
+        } else {
+            "Beds can connect into one straight row or one straight column, not a block."
+        }
+    }
 
     private fun CharacterCustomization.equip(item: ShopItem): CharacterCustomization = when (item.cosmeticSlot) {
         CosmeticSlot.SHIRT -> copy(shirt = item.visualKey)

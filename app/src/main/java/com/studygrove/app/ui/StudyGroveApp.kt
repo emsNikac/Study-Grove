@@ -3,8 +3,10 @@ package com.studygrove.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -16,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.studygrove.app.ui.components.NavPixelIcon
 import com.studygrove.app.ui.components.PixelButton
@@ -55,13 +59,28 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     StudyGroveScreen.entries.forEach { destination ->
                         NavigationBarItem(
                             selected = screen == destination,
                             onClick = { viewModel.navigate(destination) },
                             icon = { NavPixelIcon(destination, selected = screen == destination) },
-                            label = { Text(destination.label, fontWeight = FontWeight.Bold) }
+                            label = {
+                                Text(
+                                    destination.label,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Clip
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onSurface,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f),
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            )
                         )
                     }
                 }
