@@ -108,6 +108,21 @@ class StudyGroveRepository(
         return result
     }
 
+    suspend fun discardFinishedTimer(): PlacementResult {
+        var result = PlacementResult(false, "No finished timer to review.")
+        localDataSource.update { data ->
+            val timer = data.activeTimer ?: return@update data
+            if (!FocusTimerEngine.isComplete(timer, System.currentTimeMillis())) {
+                result = PlacementResult(false, "This session is still running.")
+                data
+            } else {
+                result = PlacementResult(true, "No reward counted this time. Thanks for being honest with yourself.")
+                data.copy(activeTimer = null)
+            }
+        }
+        return result
+    }
+
     suspend fun completeActiveTimer(nowMillis: Long = System.currentTimeMillis()): StudyReward? {
         var reward: StudyReward? = null
         localDataSource.update { data ->

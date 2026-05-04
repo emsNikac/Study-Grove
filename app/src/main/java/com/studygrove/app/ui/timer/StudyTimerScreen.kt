@@ -77,18 +77,18 @@ fun StudyTimerScreen(
 @Composable
 private fun TimerPresets(defaultMinutes: Int, onStart: (TimerPreset, Int?) -> Unit) {
     var customMinutes by remember(defaultMinutes) { mutableIntStateOf(defaultMinutes.coerceIn(5, 180)) }
-    PixelPanel {
+    PixelPanel(color = GroveCream) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             FocusAnimation(active = false)
             Text(
                 "Choose a gentle focus length. Complete sessions earn coins, XP, crop growth, and streak progress.",
-                color = GroveInk.copy(alpha = 0.75f),
+                color = GroveInk.copy(alpha = 0.86f),
                 fontWeight = FontWeight.Bold
             )
             PixelButton("Quick Study 15m", modifier = Modifier.fillMaxWidth(), onClick = { onStart(TimerPreset.QUICK_STUDY, null) })
             PixelButton("Focus Session 25m", modifier = Modifier.fillMaxWidth(), color = GroveClay, onClick = { onStart(TimerPreset.FOCUS_SESSION, null) })
             PixelButton("Deep Work 50m", modifier = Modifier.fillMaxWidth(), color = GroveBerry, onClick = { onStart(TimerPreset.DEEP_WORK, null) })
-            Text("Custom Timer: $customMinutes minutes", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+            Text("Custom Timer: $customMinutes minutes", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
             Slider(
                 value = customMinutes.toFloat(),
                 onValueChange = { customMinutes = it.toInt().coerceIn(5, 180) },

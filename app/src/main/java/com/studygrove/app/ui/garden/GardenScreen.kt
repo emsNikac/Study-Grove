@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
+import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.ui.StudyGroveScreen
 import com.studygrove.app.ui.components.GardenObjectSprite
@@ -181,6 +183,12 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
                             GardenTileBox(
                                 modifier = Modifier.size(tileSize),
                                 objectOnTile = obj,
+                                fenceConnections = FenceConnections(
+                                    left = objectsByTile[(x - 1) to y]?.type == GardenObjectType.FENCE,
+                                    right = objectsByTile[(x + 1) to y]?.type == GardenObjectType.FENCE,
+                                    up = objectsByTile[x to (y - 1)]?.type == GardenObjectType.FENCE,
+                                    down = objectsByTile[x to (y + 1)]?.type == GardenObjectType.FENCE
+                                ),
                                 clover = (x + y) % 5 == 0,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -199,10 +207,16 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
 private fun GardenTileBox(
     modifier: Modifier,
     objectOnTile: GardenObject?,
+    fenceConnections: FenceConnections,
     clover: Boolean,
     onClick: () -> Unit
 ) {
     val base = if (clover) Color(0xFF8DC76A) else Color(0xFF7EB95A)
+    val item = objectOnTile?.let { ShopCatalog.byId(it.shopItemId) }
+    val objectType = objectOnTile?.type
+    val isSurfaceObject = objectType == GardenObjectType.PATH ||
+        objectType == GardenObjectType.WATER ||
+        objectType == GardenObjectType.FENCE
     Box(
         modifier = modifier
             .background(base)
@@ -210,13 +224,120 @@ private fun GardenTileBox(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (clover && objectOnTile == null) {
-            Canvas(Modifier.size(12.dp)) {
-                drawRect(GroveLeaf.copy(alpha = 0.55f), topLeft = Offset(4f, 2f), size = Size(4f, 8f))
+        Canvas(Modifier.matchParentSize()) {
+            when (objectType) {
+                GardenObjectType.PATH -> drawGardenPathTile(item?.visualKey.orEmpty())
+                GardenObjectType.WATER -> drawGardenPondTile()
+                GardenObjectType.FENCE -> drawGardenFenceTile(fenceConnections)
+                else -> if (clover && objectOnTile == null) {
+                    val u = size.minDimension / 10f
+                    drawRect(GroveLeaf.copy(alpha = 0.55f), topLeft = Offset(4.5f * u, 2.4f * u), size = Size(u, 5.2f * u))
+                    drawRect(GroveMoss.copy(alpha = 0.45f), topLeft = Offset(3.6f * u, 3.2f * u), size = Size(2.8f * u, u))
+                }
             }
         }
-        objectOnTile?.let {
-            GardenObjectSprite(it, Modifier.padding(2.dp).size(34.dp))
+        if (!isSurfaceObject) {
+            objectOnTile?.let {
+                GardenObjectSprite(it, Modifier.matchParentSize().padding(2.dp))
+            }
         }
+    }
+}
+
+private data class FenceConnections(
+    val left: Boolean = false,
+    val right: Boolean = false,
+    val up: Boolean = false,
+    val down: Boolean = false
+)
+
+private fun DrawScope.drawGardenPathTile(key: String) {
+    val u = size.minDimension / 10f
+    if (key.contains("stone")) {
+        drawRect(Color(0xFF6D7776), size = size)
+        drawRect(Color(0xFFB9C2BD), topLeft = Offset(0.4f * u, 0.5f * u), size = Size(4.2f * u, 3.7f * u))
+        drawRect(Color(0xFF939D98), topLeft = Offset(0.4f * u, 3.5f * u), size = Size(4.2f * u, 0.7f * u))
+        drawRect(Color(0xFFAEB7B3), topLeft = Offset(5f * u, 0.7f * u), size = Size(4.4f * u, 4f * u))
+        drawRect(Color(0xFF87918D), topLeft = Offset(5f * u, 4f * u), size = Size(4.4f * u, 0.7f * u))
+        drawRect(Color(0xFFC5CDC8), topLeft = Offset(0.8f * u, 5.3f * u), size = Size(3.5f * u, 3.8f * u))
+        drawRect(Color(0xFF959E9A), topLeft = Offset(0.8f * u, 8.4f * u), size = Size(3.5f * u, 0.7f * u))
+        drawRect(Color(0xFFADB8B2), topLeft = Offset(4.8f * u, 5.5f * u), size = Size(4.6f * u, 3.6f * u))
+        drawRect(Color(0xFF87918D), topLeft = Offset(4.8f * u, 8.3f * u), size = Size(4.6f * u, 0.8f * u))
+    } else {
+        drawRect(Color(0xFF8E5838), size = size)
+        repeat(4) { row ->
+            val top = row * 2.5f * u
+            val plank = if (row % 2 == 0) Color(0xFFC98954) else Color(0xFFB87445)
+            drawRect(plank, topLeft = Offset(0f, top), size = Size(size.width, 2.1f * u))
+            drawRect(Color(0xFF74442C), topLeft = Offset(0f, top + 1.9f * u), size = Size(size.width, 0.35f * u))
+            drawRect(Color.White.copy(alpha = 0.13f), topLeft = Offset(u, top + 0.4f * u), size = Size(3.5f * u, 0.35f * u))
+        }
+        drawRect(Color(0xFF5D3726).copy(alpha = 0.45f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
+    }
+}
+
+private fun DrawScope.drawGardenPondTile() {
+    val u = size.minDimension / 10f
+    drawRect(Color(0xFF447D6F), size = size)
+    drawRect(Color(0xFF56A7BE), topLeft = Offset(0.8f * u, 0.9f * u), size = Size(8.4f * u, 7.9f * u))
+    drawRect(Color(0xFF357E9C), topLeft = Offset(1.1f * u, 7.4f * u), size = Size(7.8f * u, 1.4f * u))
+    drawRect(Color(0xFF8ED5D6), topLeft = Offset(2f * u, 2.1f * u), size = Size(3.2f * u, 0.7f * u))
+    drawRect(Color(0xFFBDE7E7), topLeft = Offset(5.9f * u, 4.2f * u), size = Size(1.8f * u, 0.55f * u))
+    drawRect(GroveLeaf.copy(alpha = 0.85f), topLeft = Offset(0f, 0f), size = Size(size.width, 0.7f * u))
+    drawRect(GroveMoss.copy(alpha = 0.8f), topLeft = Offset(0f, size.height - 0.8f * u), size = Size(size.width, 0.8f * u))
+    drawRect(GroveMoss.copy(alpha = 0.75f), topLeft = Offset(0f, 0f), size = Size(0.7f * u, size.height))
+    drawRect(GroveLeaf.copy(alpha = 0.75f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
+}
+
+private fun DrawScope.drawGardenFenceTile(connections: FenceConnections) {
+    val u = size.minDimension / 10f
+    val woodTop = Color(0xFFC9874D)
+    val woodSide = Color(0xFF8D5634)
+    val woodDark = Color(0xFF5B3525)
+    val shadow = GroveInk.copy(alpha = 0.2f)
+
+    drawRect(shadow, topLeft = Offset(1.3f * u, 7.8f * u), size = Size(7.5f * u, 1.1f * u))
+
+    val horizontal = connections.left || connections.right || (!connections.up && !connections.down)
+    val vertical = connections.up || connections.down
+
+    if (horizontal) {
+        val start = if (connections.left) 0f else 1.4f * u
+        val end = if (connections.right) size.width else 8.6f * u
+        val width = end - start
+        drawRect(woodSide, topLeft = Offset(start, 5.4f * u), size = Size(width, 1.35f * u))
+        drawRect(woodTop, topLeft = Offset(start, 4.6f * u), size = Size(width, 0.95f * u))
+        drawRect(Color.White.copy(alpha = 0.18f), topLeft = Offset(start, 4.7f * u), size = Size(width, 0.25f * u))
+    }
+
+    if (vertical) {
+        val start = if (connections.up) 0f else 1.3f * u
+        val end = if (connections.down) size.height else 8.4f * u
+        val height = end - start
+        drawRect(woodDark, topLeft = Offset(5.4f * u, start), size = Size(1.25f * u, height))
+        drawRect(woodSide, topLeft = Offset(4.4f * u, start), size = Size(1.45f * u, height))
+        drawRect(woodTop, topLeft = Offset(3.8f * u, start), size = Size(0.9f * u, height))
+        drawRect(Color.White.copy(alpha = 0.14f), topLeft = Offset(3.9f * u, start), size = Size(0.25f * u, height))
+    }
+
+    fun drawPost(topLeftX: Float, topLeftY: Float) {
+        drawRect(shadow, topLeft = Offset(topLeftX + 0.25f * u, topLeftY + 4.9f * u), size = Size(2.2f * u, 0.8f * u))
+        drawRect(woodDark, topLeft = Offset(topLeftX + 0.55f * u, topLeftY + 0.45f * u), size = Size(1.4f * u, 5.1f * u))
+        drawRect(woodSide, topLeft = Offset(topLeftX, topLeftY), size = Size(1.75f * u, 5.3f * u))
+        drawRect(woodTop, topLeft = Offset(topLeftX - 0.15f * u, topLeftY - 0.5f * u), size = Size(2.05f * u, 0.9f * u))
+        drawRect(Color.White.copy(alpha = 0.16f), topLeft = Offset(topLeftX + 0.18f * u, topLeftY + 0.35f * u), size = Size(0.35f * u, 4.2f * u))
+    }
+
+    if (horizontal) {
+        drawPost(if (connections.left) -0.7f * u else 1.2f * u, 2.1f * u)
+        drawPost(4.15f * u, 1.8f * u)
+        drawPost(if (connections.right) 8.9f * u else 7.1f * u, 2.1f * u)
+    }
+    if (vertical) {
+        drawPost(4.15f * u, if (connections.up) -0.8f * u else 1.0f * u)
+        if (!horizontal) {
+            drawPost(4.15f * u, 4.1f * u)
+        }
+        drawPost(4.15f * u, if (connections.down) 8.2f * u else 6.4f * u)
     }
 }

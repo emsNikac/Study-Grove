@@ -44,6 +44,9 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     private val _reward = MutableStateFlow<StudyReward?>(null)
     val reward: StateFlow<StudyReward?> = _reward.asStateFlow()
 
+    private val _sessionReviewPending = MutableStateFlow(false)
+    val sessionReviewPending: StateFlow<Boolean> = _sessionReviewPending.asStateFlow()
+
     private val _selectedGardenItemId = MutableStateFlow<String?>(null)
     val selectedGardenItemId: StateFlow<String?> = _selectedGardenItemId.asStateFlow()
 
@@ -56,8 +59,11 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
                 val now = System.currentTimeMillis()
                 _nowMillis.value = now
                 val timer = gameData.value.activeTimer
-                if (timer != null && !timer.isPaused && FocusTimerEngine.isComplete(timer, now)) {
-                    completeTimer(now)
+                if (timer != null && !timer.isPaused && !_sessionReviewPending.value && FocusTimerEngine.isComplete(timer, now)) {
+                    _sessionReviewPending.value = true
+                    _screen.value = StudyGroveScreen.TIMER
+                    notificationScheduler.cancelTimerComplete()
+                    soundEngine.complete(gameData.value.settings.soundEnabled)
                 }
                 delay(1_000)
             }
@@ -71,6 +77,7 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
 
     fun startTimer(preset: TimerPreset, customMinutes: Int? = null) {
         viewModelScope.launch {
+            _sessionReviewPending.value = false
             val timer = repository.startTimer(preset, customMinutes)
             val data = repository.current()
             if (timer != null) {
@@ -104,10 +111,25 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
 
     fun cancelTimer() {
         viewModelScope.launch {
+            _sessionReviewPending.value = false
             val result = repository.cancelTimer()
             notificationScheduler.cancelTimerComplete()
             _message.value = result.message
             soundEngine.click(gameData.value.settings.soundEnabled)
+        }
+    }
+
+    fun confirmFinishedSession(countSession: Boolean) {
+        viewModelScope.launch {
+            _sessionReviewPending.value = false
+            if (countSession) {
+                completeTimer(System.currentTimeMillis())
+            } else {
+                val result = repository.discardFinishedTimer()
+                notificationScheduler.cancelTimerComplete()
+                _message.value = result.message
+                soundEngine.click(repository.current().settings.soundEnabled)
+            }
         }
     }
 
@@ -243,6 +265,7 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             _selectedGardenItemId.value = null
             _selectedHouseItemId.value = null
             _reward.value = null
+            _sessionReviewPending.value = false
             notificationScheduler.cancelTimerComplete()
             _message.value = "Progress reset. A fresh grove is ready."
         }

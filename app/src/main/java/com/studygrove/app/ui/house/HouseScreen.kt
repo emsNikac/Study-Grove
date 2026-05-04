@@ -111,7 +111,7 @@ private fun GameData.furnitureItems(): List<FurnitureDisplayItem> =
 private fun HouseGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
     val haptic = LocalHapticFeedback.current
     val objectsByTile = remember(gameData.house.objects) { gameData.house.objects.associateBy { it.x to it.y } }
-    PixelPanel(color = Color(0xFFDCA875)) {
+    PixelPanel(color = Color(0xFFC88A58)) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val tileSize = maxWidth / gameData.house.width
             Column(Modifier.fillMaxWidth()) {
@@ -122,7 +122,7 @@ private fun HouseGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
                             Box(
                                 modifier = Modifier
                                     .size(tileSize)
-                                    .background(if ((x + y) % 2 == 0) Color(0xFFECC18D) else Color(0xFFE4B47D))
+                                    .background(if ((x + y) % 2 == 0) Color(0xFFE8B27A) else Color(0xFFD79A62))
                                     .border(0.5.dp, GroveInk.copy(alpha = 0.28f))
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -130,7 +130,7 @@ private fun HouseGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                obj?.let { HouseObjectSprite(it, Modifier.padding(2.dp).size(36.dp)) }
+                                obj?.let { HouseObjectSprite(it, Modifier.matchParentSize().padding(2.dp)) }
                             }
                         }
                     }

@@ -39,6 +39,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
     val nowMillis by viewModel.nowMillis.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val reward by viewModel.reward.collectAsStateWithLifecycle()
+    val sessionReviewPending by viewModel.sessionReviewPending.collectAsStateWithLifecycle()
     val selectedGardenItem by viewModel.selectedGardenItemId.collectAsStateWithLifecycle()
     val selectedHouseItem by viewModel.selectedHouseItemId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -112,6 +113,25 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                     )
                 }
             }
+        }
+        if (sessionReviewPending) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Did this session count?", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace) },
+                text = {
+                    Text("Timer finished. Did you effectively study, or was this mostly procrastination? Either answer is okay.")
+                },
+                confirmButton = {
+                    PixelButton("Count it", color = GroveMoss) {
+                        viewModel.confirmFinishedSession(true)
+                    }
+                },
+                dismissButton = {
+                    PixelButton("Do not count", color = GroveBerry) {
+                        viewModel.confirmFinishedSession(false)
+                    }
+                }
+            )
         }
         reward?.let { sessionReward ->
             AlertDialog(

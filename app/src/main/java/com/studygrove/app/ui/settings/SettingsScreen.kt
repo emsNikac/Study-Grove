@@ -89,7 +89,16 @@ fun SettingsScreen(
         )
         PixelPanel(color = GroveCream) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Default custom timer: $sliderMinutes minutes", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                Text("Timer preference", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                Text(
+                    "Default custom timer length: $sliderMinutes minutes",
+                    color = GroveInk.copy(alpha = 0.86f),
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "This is the starting value shown on the Custom Timer slider.",
+                    color = GroveInk.copy(alpha = 0.7f)
+                )
                 Slider(
                     value = sliderMinutes.toFloat(),
                     onValueChange = { sliderMinutes = it.toInt().coerceIn(5, 180) },

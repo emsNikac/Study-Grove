@@ -43,10 +43,10 @@ fun ShopScreen(gameData: GameData, onBuyItem: (String) -> Unit) {
         SectionTitle("Shop")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             PixelPanel(modifier = Modifier.weight(1f), color = GroveCream) {
-                Text("Coins: ${gameData.player.coins}", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                Text("Coins: ${gameData.player.coins}", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
             }
             PixelPanel(modifier = Modifier.weight(1f), color = GroveCream) {
-                Text("Level: ${gameData.player.level}", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                Text("Level: ${gameData.player.level}", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
             }
         }
         ShopCategoryGrid(selectedCategory = selectedCategory, onSelected = { selectedCategory = it })
@@ -90,12 +90,12 @@ private fun ShopItemRow(gameData: GameData, item: ShopItem, onBuyItem: (String) 
     val unlocked = testMode || gameData.player.level >= item.unlockLevel
     val affordable = testMode || gameData.player.coins >= item.price
     val enabled = testMode || (unlocked && affordable && !ownedMax)
-    PixelPanel(color = if (unlocked) GroveCream.copy(alpha = 0.92f) else Color(0xFFE0D7C7)) {
+    PixelPanel(color = if (unlocked) Color(0xFFFFF0CE) else Color(0xFFE7DCCB)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             InventoryItemSprite(item = item, modifier = Modifier.size(54.dp).padding(2.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(item.name, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, fontSize = 15.sp)
-                Text(item.description, fontSize = 12.sp, color = GroveInk.copy(alpha = 0.68f))
+                Text(item.name, color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, fontSize = 15.sp)
+                Text(item.description, fontSize = 12.sp, color = GroveInk.copy(alpha = 0.78f))
                 Text(
                     if (testMode) {
                         "Test mode: free and unlocked"
@@ -104,7 +104,7 @@ private fun ShopItemRow(gameData: GameData, item: ShopItem, onBuyItem: (String) 
                     },
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (enabled) GroveMoss else GroveBerry
+                    color = if (enabled) Color(0xFF2F6845) else GroveBerry
                 )
             }
             PixelButton(

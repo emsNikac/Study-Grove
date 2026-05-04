@@ -162,16 +162,22 @@ fun PixelProgressBar(
 fun QuestList(quests: List<DailyQuest>, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         quests.forEach { quest ->
-            PixelPanel(color = if (quest.completed) Color(0xFFDDF1BD) else GroveCream.copy(alpha = 0.82f)) {
+            val completed = quest.completed
+            val panelColor = if (completed) Color(0xFF2F6845) else GroveCream.copy(alpha = 0.92f)
+            val primaryText = if (completed) Color.White else GroveInk
+            val secondaryText = if (completed) Color(0xFFE8F8D8) else GroveInk.copy(alpha = 0.72f)
+            val rewardText = if (completed) Color(0xFFFFE08A) else GroveClay
+            PixelPanel(color = panelColor) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(quest.title, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                        Text("+${quest.rewardCoins}", fontWeight = FontWeight.Black, color = GroveClay)
+                        Text(quest.title, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, color = primaryText)
+                        Text("+${quest.rewardCoins}", fontWeight = FontWeight.Black, color = rewardText)
                     }
-                    Text(quest.description, fontSize = 12.sp, color = GroveInk.copy(alpha = 0.72f))
+                    Text(quest.description, fontSize = 12.sp, color = secondaryText)
                     PixelProgressBar(
                         progress = quest.progress.toFloat() / quest.target.toFloat(),
-                        fill = if (quest.completed) GroveLeaf else GroveBerry
+                        fill = if (completed) Color(0xFFFFE08A) else GroveBerry,
+                        track = if (completed) Color(0xFF224C34) else GroveCream
                     )
                 }
             }
@@ -337,50 +343,153 @@ private fun DrawScope.drawTreeSprite(key: String, u: Float) {
 }
 
 private fun DrawScope.drawCropSprite(key: String, growthReady: Boolean, u: Float) {
-    drawRect(Color(0xFF6E4C2B), topLeft = androidx.compose.ui.geometry.Offset(2 * u, 7 * u), size = androidx.compose.ui.geometry.Size(6 * u, u))
-    val flower = when {
-        key.contains("carrot") -> Color(0xFFE87935)
-        key.contains("strawberry") -> GroveBerry
-        key.contains("blossom") -> Color(0xFF8E72D8)
-        else -> Color(0xFFFFE46B)
-    }
-    drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(4 * u, 4 * u), size = androidx.compose.ui.geometry.Size(2 * u, 3 * u))
-    if (growthReady) {
-        drawRect(flower, topLeft = androidx.compose.ui.geometry.Offset(3 * u, 2 * u), size = androidx.compose.ui.geometry.Size(4 * u, 3 * u))
-    } else {
-        drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(4 * u, 5 * u), size = androidx.compose.ui.geometry.Size(2 * u, 2 * u))
+    drawRect(GroveInk.copy(alpha = 0.18f), topLeft = androidx.compose.ui.geometry.Offset(2.2f * u, 8.1f * u), size = androidx.compose.ui.geometry.Size(5.8f * u, 0.75f * u))
+    drawRect(Color(0xFF654328), topLeft = androidx.compose.ui.geometry.Offset(2 * u, 7.2f * u), size = androidx.compose.ui.geometry.Size(6 * u, 1.15f * u))
+    drawRect(Color(0xFF8A5B34), topLeft = androidx.compose.ui.geometry.Offset(2.4f * u, 6.8f * u), size = androidx.compose.ui.geometry.Size(5.2f * u, 0.7f * u))
+
+    when {
+        key.contains("carrot") -> {
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(3.2f * u, 3.8f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 3.2f * u))
+            drawRect(Color(0xFF4D8F42), topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 3.1f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 3.9f * u))
+            drawRect(GroveMoss, topLeft = androidx.compose.ui.geometry.Offset(5.9f * u, 3.9f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 3.1f * u))
+            if (growthReady) {
+                drawRect(Color(0xFFE87935), topLeft = androidx.compose.ui.geometry.Offset(4.1f * u, 5.6f * u), size = androidx.compose.ui.geometry.Size(2.1f * u, 2.8f * u))
+                drawRect(Color(0xFFFFA755), topLeft = androidx.compose.ui.geometry.Offset(4.55f * u, 5.9f * u), size = androidx.compose.ui.geometry.Size(0.55f * u, 1.8f * u))
+            } else {
+                drawRect(Color(0xFFE87935), topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 6.6f * u), size = androidx.compose.ui.geometry.Size(0.9f * u, 0.8f * u))
+            }
+        }
+        key.contains("strawberry") -> {
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(2.8f * u, 5.4f * u), size = androidx.compose.ui.geometry.Size(4.6f * u, 1.2f * u))
+            drawRect(Color(0xFF4F9849), topLeft = androidx.compose.ui.geometry.Offset(3.4f * u, 4.4f * u), size = androidx.compose.ui.geometry.Size(1.2f * u, 2.2f * u))
+            drawRect(Color(0xFF4F9849), topLeft = androidx.compose.ui.geometry.Offset(5.6f * u, 4.5f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 2.1f * u))
+            drawRect(GroveBerry, topLeft = androidx.compose.ui.geometry.Offset(3.4f * u, if (growthReady) 3.2f * u else 5.3f * u), size = androidx.compose.ui.geometry.Size(1.4f * u, 1.4f * u))
+            drawRect(GroveBerry, topLeft = androidx.compose.ui.geometry.Offset(5.5f * u, if (growthReady) 4.1f * u else 5.8f * u), size = androidx.compose.ui.geometry.Size(1.2f * u, 1.2f * u))
+            if (growthReady) {
+                drawRect(Color(0xFFFFF3B4), topLeft = androidx.compose.ui.geometry.Offset(3.8f * u, 3.5f * u), size = androidx.compose.ui.geometry.Size(0.3f * u, 0.3f * u))
+                drawRect(Color(0xFFFFF3B4), topLeft = androidx.compose.ui.geometry.Offset(5.9f * u, 4.4f * u), size = androidx.compose.ui.geometry.Size(0.3f * u, 0.3f * u))
+            }
+        }
+        key.contains("blossom") -> {
+            drawRect(Color(0xFF5E9F58), topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 3.5f * u), size = androidx.compose.ui.geometry.Size(0.9f * u, 3.7f * u))
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(3.2f * u, 5.3f * u), size = androidx.compose.ui.geometry.Size(1.8f * u, 1.1f * u))
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(5.2f * u, 4.8f * u), size = androidx.compose.ui.geometry.Size(1.8f * u, 1.1f * u))
+            val blossom = Color(0xFF8E72D8)
+            val bloomY = if (growthReady) 1.7f * u else 3.2f * u
+            drawRect(blossom, topLeft = androidx.compose.ui.geometry.Offset(3.8f * u, bloomY), size = androidx.compose.ui.geometry.Size(2.4f * u, 2.4f * u))
+            drawRect(Color(0xFFFFE08A), topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, bloomY + 0.8f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 0.8f * u))
+            if (growthReady) {
+                drawRect(Color(0xFFCDBDFF), topLeft = androidx.compose.ui.geometry.Offset(3.1f * u, 2.4f * u), size = androidx.compose.ui.geometry.Size(3.8f * u, 0.75f * u))
+            }
+        }
+        else -> {
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 4.2f * u), size = androidx.compose.ui.geometry.Size(0.9f * u, 3f * u))
+            drawRect(GroveMoss, topLeft = androidx.compose.ui.geometry.Offset(3.4f * u, 5.4f * u), size = androidx.compose.ui.geometry.Size(1.7f * u, 0.9f * u))
+            drawRect(GroveMoss, topLeft = androidx.compose.ui.geometry.Offset(5.1f * u, 5f * u), size = androidx.compose.ui.geometry.Size(1.7f * u, 0.9f * u))
+            if (growthReady) {
+                drawRect(Color(0xFFFFF6CE), topLeft = androidx.compose.ui.geometry.Offset(3.1f * u, 2.1f * u), size = androidx.compose.ui.geometry.Size(3.8f * u, 3.1f * u))
+                drawRect(Color(0xFFFFC94A), topLeft = androidx.compose.ui.geometry.Offset(4.25f * u, 3f * u), size = androidx.compose.ui.geometry.Size(1.5f * u, 1.4f * u))
+            } else {
+                drawRect(Color(0xFFFFC94A), topLeft = androidx.compose.ui.geometry.Offset(4.25f * u, 3.35f * u), size = androidx.compose.ui.geometry.Size(1.5f * u, 1.3f * u))
+            }
+        }
     }
 }
 
 private fun DrawScope.drawFurnitureSprite(key: String, u: Float) {
-    val color = when {
-        key.contains("chair") -> GroveBerry
-        key.contains("bed") -> Color(0xFF7096C8)
-        key.contains("shelf") || key.contains("library") -> Color(0xFF8D5A35)
-        else -> GroveClay
+    drawRect(GroveInk.copy(alpha = 0.16f), topLeft = androidx.compose.ui.geometry.Offset(1.5f * u, 8.3f * u), size = androidx.compose.ui.geometry.Size(7.2f * u, 0.8f * u))
+    when {
+        key.contains("chair") -> {
+            drawRect(Color(0xFF753D55), topLeft = androidx.compose.ui.geometry.Offset(3.1f * u, 2.2f * u), size = androidx.compose.ui.geometry.Size(4.6f * u, 4.5f * u))
+            drawRect(GroveBerry, topLeft = androidx.compose.ui.geometry.Offset(2.4f * u, 4.3f * u), size = androidx.compose.ui.geometry.Size(5.3f * u, 2.7f * u))
+            drawRect(Color(0xFFE889A0), topLeft = androidx.compose.ui.geometry.Offset(3.1f * u, 4.7f * u), size = androidx.compose.ui.geometry.Size(3.8f * u, 0.8f * u))
+            drawRect(Color(0xFF5B3340), topLeft = androidx.compose.ui.geometry.Offset(3f * u, 7f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 1.7f * u))
+            drawRect(Color(0xFF5B3340), topLeft = androidx.compose.ui.geometry.Offset(6.1f * u, 7f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 1.7f * u))
+        }
+        key.contains("bed") -> {
+            drawRect(Color(0xFF7A4D31), topLeft = androidx.compose.ui.geometry.Offset(1.3f * u, 3.7f * u), size = androidx.compose.ui.geometry.Size(7.7f * u, 4.5f * u))
+            drawRect(Color(0xFF7096C8), topLeft = androidx.compose.ui.geometry.Offset(1.8f * u, 3f * u), size = androidx.compose.ui.geometry.Size(6.6f * u, 4.2f * u))
+            drawRect(Color(0xFF4F6F9E), topLeft = androidx.compose.ui.geometry.Offset(1.8f * u, 6.3f * u), size = androidx.compose.ui.geometry.Size(6.6f * u, 0.9f * u))
+            drawRect(Color(0xFFFFE7CF), topLeft = androidx.compose.ui.geometry.Offset(2.4f * u, 3.4f * u), size = androidx.compose.ui.geometry.Size(2.2f * u, 1.4f * u))
+            drawRect(Color(0xFFE9F1FF), topLeft = androidx.compose.ui.geometry.Offset(4.9f * u, 3.5f * u), size = androidx.compose.ui.geometry.Size(2.3f * u, 1.1f * u))
+        }
+        key.contains("shelf") || key.contains("library") -> {
+            drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(1.9f * u, 1.5f * u), size = androidx.compose.ui.geometry.Size(6.6f * u, 7.4f * u))
+            drawRect(Color(0xFF8D5A35), topLeft = androidx.compose.ui.geometry.Offset(1.4f * u, 1f * u), size = androidx.compose.ui.geometry.Size(6.6f * u, 7.2f * u))
+            drawRect(Color(0xFFB97948), topLeft = androidx.compose.ui.geometry.Offset(1.8f * u, 1.4f * u), size = androidx.compose.ui.geometry.Size(5.6f * u, 0.7f * u))
+            repeat(3) { shelf ->
+                val top = (2.5f + shelf * 1.8f) * u
+                drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(1.8f * u, top + 1.1f * u), size = androidx.compose.ui.geometry.Size(5.6f * u, 0.4f * u))
+                drawRect(Color(0xFF5F8FB1), topLeft = androidx.compose.ui.geometry.Offset(2.1f * u, top), size = androidx.compose.ui.geometry.Size(0.7f * u, 1.1f * u))
+                drawRect(GroveBerry, topLeft = androidx.compose.ui.geometry.Offset(3.1f * u, top + 0.1f * u), size = androidx.compose.ui.geometry.Size(0.75f * u, u))
+                drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(4.2f * u, top), size = androidx.compose.ui.geometry.Size(0.65f * u, 1.1f * u))
+                drawRect(Color(0xFFFFC94A), topLeft = androidx.compose.ui.geometry.Offset(5.2f * u, top + 0.15f * u), size = androidx.compose.ui.geometry.Size(0.7f * u, 0.95f * u))
+            }
+        }
+        else -> {
+            drawRect(Color(0xFF7A4D31), topLeft = androidx.compose.ui.geometry.Offset(2f * u, 4.8f * u), size = androidx.compose.ui.geometry.Size(6.5f * u, 2.6f * u))
+            drawRect(GroveClay, topLeft = androidx.compose.ui.geometry.Offset(1.5f * u, 3.4f * u), size = androidx.compose.ui.geometry.Size(6.6f * u, 2.1f * u))
+            drawRect(Color(0xFFD39B63), topLeft = androidx.compose.ui.geometry.Offset(2f * u, 3.7f * u), size = androidx.compose.ui.geometry.Size(5.4f * u, 0.45f * u))
+            drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(2.3f * u, 6.6f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 2.1f * u))
+            drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(6.7f * u, 6.6f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 2.1f * u))
+            drawRect(Color(0xFFFFF0C7), topLeft = androidx.compose.ui.geometry.Offset(3.2f * u, 2.6f * u), size = androidx.compose.ui.geometry.Size(2.6f * u, 0.8f * u))
+        }
     }
-    drawRect(color, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 3 * u), size = androidx.compose.ui.geometry.Size(6 * u, 4 * u))
-    drawRect(GroveInk.copy(alpha = 0.22f), topLeft = androidx.compose.ui.geometry.Offset(3 * u, 4 * u), size = androidx.compose.ui.geometry.Size(4 * u, u))
 }
 
 private fun DrawScope.drawDecorationSprite(key: String, u: Float) {
+    drawRect(GroveInk.copy(alpha = 0.16f), topLeft = androidx.compose.ui.geometry.Offset(1.7f * u, 8.2f * u), size = androidx.compose.ui.geometry.Size(6.6f * u, 0.75f * u))
     when {
         key.contains("lamp") -> {
-            drawRect(Color(0xFF6B513D), topLeft = androidx.compose.ui.geometry.Offset(4.5f * u, 3 * u), size = androidx.compose.ui.geometry.Size(u, 5 * u))
-            drawRect(Color(0xFFFFE46B), topLeft = androidx.compose.ui.geometry.Offset(3 * u, u), size = androidx.compose.ui.geometry.Size(4 * u, 3 * u))
+            drawRect(Color(0xFFFFE08A).copy(alpha = 0.35f), topLeft = androidx.compose.ui.geometry.Offset(2.2f * u, 0.8f * u), size = androidx.compose.ui.geometry.Size(5.6f * u, 4.4f * u))
+            drawRect(Color(0xFF4A3B30), topLeft = androidx.compose.ui.geometry.Offset(4.55f * u, 3.4f * u), size = androidx.compose.ui.geometry.Size(0.95f * u, 4.6f * u))
+            drawRect(Color(0xFF6B513D), topLeft = androidx.compose.ui.geometry.Offset(4.15f * u, 3.2f * u), size = androidx.compose.ui.geometry.Size(0.95f * u, 4.6f * u))
+            drawRect(Color(0xFFFFE46B), topLeft = androidx.compose.ui.geometry.Offset(3 * u, 1.1f * u), size = androidx.compose.ui.geometry.Size(4 * u, 2.6f * u))
+            drawRect(Color(0xFFFFF4C0), topLeft = androidx.compose.ui.geometry.Offset(3.4f * u, 1.4f * u), size = androidx.compose.ui.geometry.Size(3.2f * u, 0.7f * u))
+            drawRect(Color(0xFF7A4D31), topLeft = androidx.compose.ui.geometry.Offset(3.5f * u, 7.5f * u), size = androidx.compose.ui.geometry.Size(2.3f * u, 0.7f * u))
         }
         key.contains("bench") -> {
-            drawRect(Color(0xFF8D5A35), topLeft = androidx.compose.ui.geometry.Offset(2 * u, 4 * u), size = androidx.compose.ui.geometry.Size(6 * u, 2 * u))
-            drawRect(Color(0xFF6B513D), topLeft = androidx.compose.ui.geometry.Offset(3 * u, 6 * u), size = androidx.compose.ui.geometry.Size(u, 2 * u))
-            drawRect(Color(0xFF6B513D), topLeft = androidx.compose.ui.geometry.Offset(6 * u, 6 * u), size = androidx.compose.ui.geometry.Size(u, 2 * u))
+            drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(2.3f * u, 3.2f * u), size = androidx.compose.ui.geometry.Size(6.2f * u, 1.1f * u))
+            drawRect(Color(0xFF8D5A35), topLeft = androidx.compose.ui.geometry.Offset(1.7f * u, 2.8f * u), size = androidx.compose.ui.geometry.Size(6.3f * u, 1.1f * u))
+            drawRect(Color(0xFFB97948), topLeft = androidx.compose.ui.geometry.Offset(1.4f * u, 4.8f * u), size = androidx.compose.ui.geometry.Size(6.8f * u, 1.5f * u))
+            drawRect(Color(0xFF6B513D), topLeft = androidx.compose.ui.geometry.Offset(1.4f * u, 6.1f * u), size = androidx.compose.ui.geometry.Size(6.8f * u, 0.55f * u))
+            drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(2.5f * u, 6.4f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 2f * u))
+            drawRect(Color(0xFF5B3525), topLeft = androidx.compose.ui.geometry.Offset(6.2f * u, 6.4f * u), size = androidx.compose.ui.geometry.Size(0.8f * u, 2f * u))
         }
         key.contains("greenhouse") -> {
-            drawRect(Color(0xFFBDE7E7), topLeft = androidx.compose.ui.geometry.Offset(2 * u, 3 * u), size = androidx.compose.ui.geometry.Size(6 * u, 4 * u))
-            drawRect(GroveMoss, topLeft = androidx.compose.ui.geometry.Offset(4 * u, 5 * u), size = androidx.compose.ui.geometry.Size(2 * u, 2 * u))
+            drawRect(Color(0xFF6C8F89), topLeft = androidx.compose.ui.geometry.Offset(1.6f * u, 3.3f * u), size = androidx.compose.ui.geometry.Size(7.1f * u, 4.7f * u))
+            drawRect(Color(0xFFBDE7E7), topLeft = androidx.compose.ui.geometry.Offset(1.2f * u, 3f * u), size = androidx.compose.ui.geometry.Size(7.1f * u, 4.7f * u))
+            drawRect(Color(0xFFE7FFFF).copy(alpha = 0.8f), topLeft = androidx.compose.ui.geometry.Offset(2.1f * u, 3.5f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 3.3f * u))
+            drawRect(Color(0xFF6C8F89), topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 3f * u), size = androidx.compose.ui.geometry.Size(0.45f * u, 4.7f * u))
+            drawRect(GroveMoss, topLeft = androidx.compose.ui.geometry.Offset(3.8f * u, 5.5f * u), size = androidx.compose.ui.geometry.Size(2.5f * u, 2.2f * u))
+            drawRect(Color(0xFF8ED5D6), topLeft = androidx.compose.ui.geometry.Offset(0.8f * u, 2.6f * u), size = androidx.compose.ui.geometry.Size(7.9f * u, 0.7f * u))
+        }
+        key.contains("observatory") -> {
+            drawRect(Color(0xFF68758D), topLeft = androidx.compose.ui.geometry.Offset(2f * u, 4.4f * u), size = androidx.compose.ui.geometry.Size(6.2f * u, 3.8f * u))
+            drawRect(Color(0xFFA9D7D8), topLeft = androidx.compose.ui.geometry.Offset(2.2f * u, 2.3f * u), size = androidx.compose.ui.geometry.Size(5.4f * u, 3.2f * u))
+            drawRect(Color(0xFF4F5C74), topLeft = androidx.compose.ui.geometry.Offset(2.1f * u, 5.2f * u), size = androidx.compose.ui.geometry.Size(5.7f * u, 0.7f * u))
+            drawRect(Color(0xFFFFE08A), topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 3.5f * u), size = androidx.compose.ui.geometry.Size(0.7f * u, 0.7f * u))
+            drawRect(Color(0xFFFFF4C0), topLeft = androidx.compose.ui.geometry.Offset(5.8f * u, 2.8f * u), size = androidx.compose.ui.geometry.Size(0.45f * u, 0.45f * u))
+        }
+        key.contains("garden_expand") -> {
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(2f * u, 2f * u), size = androidx.compose.ui.geometry.Size(5.2f * u, 5.2f * u))
+            drawRect(GroveMoss, topLeft = androidx.compose.ui.geometry.Offset(2.7f * u, 2.7f * u), size = androidx.compose.ui.geometry.Size(3.8f * u, 3.8f * u))
+            drawRect(Color(0xFFFFE08A), topLeft = androidx.compose.ui.geometry.Offset(6.4f * u, 5.5f * u), size = androidx.compose.ui.geometry.Size(1.8f * u, 0.7f * u))
+            drawRect(Color(0xFFFFE08A), topLeft = androidx.compose.ui.geometry.Offset(6.95f * u, 4.95f * u), size = androidx.compose.ui.geometry.Size(0.7f * u, 1.8f * u))
+        }
+        key.contains("house_upgrade") -> {
+            drawRect(Color(0xFF8D4C3B), topLeft = androidx.compose.ui.geometry.Offset(1.5f * u, 3f * u), size = androidx.compose.ui.geometry.Size(7f * u, 1.2f * u))
+            drawRect(GroveClay, topLeft = androidx.compose.ui.geometry.Offset(2.2f * u, 4.1f * u), size = androidx.compose.ui.geometry.Size(5.6f * u, 4.2f * u))
+            drawRect(Color(0xFFFFE08A), topLeft = androidx.compose.ui.geometry.Offset(6.1f * u, 5.1f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 1.1f * u))
+            drawRect(GroveInk.copy(alpha = 0.3f), topLeft = androidx.compose.ui.geometry.Offset(3.2f * u, 5.6f * u), size = androidx.compose.ui.geometry.Size(1.3f * u, 2.7f * u))
         }
         else -> {
-            drawRect(GroveClay, topLeft = androidx.compose.ui.geometry.Offset(3 * u, 4 * u), size = androidx.compose.ui.geometry.Size(4 * u, 3 * u))
-            drawRect(GroveBerry, topLeft = androidx.compose.ui.geometry.Offset(4 * u, 2 * u), size = androidx.compose.ui.geometry.Size(2 * u, 2 * u))
+            drawRect(Color(0xFF8D5634), topLeft = androidx.compose.ui.geometry.Offset(3.1f * u, 5.1f * u), size = androidx.compose.ui.geometry.Size(4.1f * u, 2.4f * u))
+            drawRect(GroveClay, topLeft = androidx.compose.ui.geometry.Offset(2.8f * u, 4.6f * u), size = androidx.compose.ui.geometry.Size(4.1f * u, 2.4f * u))
+            drawRect(Color(0xFFFFE08A), topLeft = androidx.compose.ui.geometry.Offset(3.2f * u, 2.8f * u), size = androidx.compose.ui.geometry.Size(1.3f * u, 1.3f * u))
+            drawRect(GroveBerry, topLeft = androidx.compose.ui.geometry.Offset(4.6f * u, 2.2f * u), size = androidx.compose.ui.geometry.Size(1.5f * u, 1.5f * u))
+            drawRect(Color(0xFFFFF4C0), topLeft = androidx.compose.ui.geometry.Offset(5.8f * u, 3.1f * u), size = androidx.compose.ui.geometry.Size(1.1f * u, 1.1f * u))
+            drawRect(GroveLeaf, topLeft = androidx.compose.ui.geometry.Offset(4.4f * u, 3.7f * u), size = androidx.compose.ui.geometry.Size(0.9f * u, 1.2f * u))
         }
     }
 }
