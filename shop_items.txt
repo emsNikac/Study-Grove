@@ -1,0 +1,307 @@
+Study Grove - Complete Buyable Item Catalog
+
+This file lists every item currently defined in ShopCatalog.
+
+Total items: 30
+
+SEEDS
+
+1. Daisy Seed
+   ID: seed_daisy
+   Price: 10 coins
+   Unlock level: 1
+   Placement target: Garden
+   Garden type: Crop
+   Growth: 1 completed study session
+   Harvest reward: 4 coins
+   Visual key: daisy
+   Description: A sunny flower that blooms after one completed session.
+
+2. Carrot Seed
+   ID: seed_carrot
+   Price: 20 coins
+   Unlock level: 2
+   Placement target: Garden
+   Garden type: Crop
+   Growth: 2 completed study sessions
+   Harvest reward: 10 coins
+   Visual key: carrot
+   Description: A sturdy study snack crop. Grows after two sessions.
+
+3. Strawberry Seed
+   ID: seed_strawberry
+   Price: 35 coins
+   Unlock level: 3
+   Placement target: Garden
+   Garden type: Crop
+   Growth: 3 completed study sessions
+   Harvest reward: 18 coins
+   Visual key: strawberry
+   Description: A sweet patch that ripens after three sessions.
+
+4. Study Blossom Seed
+   ID: seed_study_blossom
+   Price: 100 coins
+   Unlock level: 8
+   Placement target: Garden
+   Garden type: Crop
+   Growth: 5 completed study sessions
+   Harvest reward: 55 coins
+   Visual key: study_blossom
+   Description: A rare blossom that grows with five focused sessions.
+
+PATHS AND FENCES
+
+5. Wooden Path
+   ID: path_wood
+   Price: 5 coins
+   Unlock level: 1
+   Placement target: Garden
+   Garden type: Path
+   Visual key: wood_path
+   Description: Warm planks for a tiny garden trail.
+
+6. Small Fence
+   ID: fence_small
+   Price: 15 coins
+   Unlock level: 2
+   Placement target: Garden
+   Garden type: Fence
+   Visual key: small_fence
+   Description: A friendly border for your plants.
+
+7. Stone Path
+   ID: path_stone
+   Price: 30 coins
+   Unlock level: 4
+   Placement target: Garden
+   Garden type: Path
+   Visual key: stone_path
+   Description: Cool stepping stones for quiet mornings.
+
+GARDEN DECORATIONS
+
+8. Flower Pot
+   ID: decor_flower_pot
+   Price: 25 coins
+   Unlock level: 2
+   Placement target: Garden
+   Garden type: Decoration
+   Visual key: flower_pot
+   Description: A bright pot for corners that need cheer.
+
+9. Apple Tree
+   ID: tree_apple
+   Price: 70 coins
+   Unlock level: 3
+   Placement target: Garden
+   Garden type: Tree
+   Visual key: apple_tree
+   Description: A small orchard friend for level three gardeners.
+
+10. Lamp Post
+    ID: decor_lamp
+    Price: 50 coins
+    Unlock level: 4
+    Placement target: Garden
+    Garden type: Decoration
+    Visual key: lamp
+    Description: A soft glow for evening study walks.
+
+11. Tiny Pond
+    ID: water_tiny_pond
+    Price: 120 coins
+    Unlock level: 5
+    Placement target: Garden
+    Garden type: Water
+    Visual key: pond
+    Description: A calm square of water for deep breaths.
+
+12. Reading Bench
+    ID: decor_reading_bench
+    Price: 150 coins
+    Unlock level: 6
+    Placement target: Garden
+    Garden type: Decoration
+    Visual key: bench
+    Description: A cozy garden seat for review notes.
+
+13. Observatory Decoration
+    ID: decor_observatory
+    Price: 600 coins
+    Unlock level: 15
+    Placement target: Garden
+    Garden type: Structure
+    Visual key: observatory
+    Description: A stargazing dome for long-term dreamers.
+
+14. Golden Study Tree
+    ID: tree_golden_study
+    Price: 1,000 coins
+    Unlock level: 20
+    Placement target: Garden
+    Garden type: Tree
+    Visual key: golden_tree
+    Description: A glowing tree for masters of the grove.
+
+HOUSE FURNITURE
+
+15. Small Desk
+    ID: furniture_small_desk
+    Price: 50 coins
+    Unlock level: 2
+    Placement target: House
+    House type: Desk
+    Visual key: desk
+    Description: A practical desk for your cottage notes.
+
+16. Cozy Chair
+    ID: furniture_cozy_chair
+    Price: 75 coins
+    Unlock level: 3
+    Placement target: House
+    House type: Chair
+    Visual key: chair
+    Description: A rounded chair for calm reading breaks.
+
+17. Bookshelf
+    ID: furniture_bookshelf
+    Price: 120 coins
+    Unlock level: 4
+    Placement target: House
+    House type: Shelf
+    Visual key: bookshelf
+    Description: A tidy shelf that makes the room feel wiser.
+
+18. Bed
+    ID: furniture_bed
+    Price: 150 coins
+    Unlock level: 5
+    Placement target: House
+    House type: Bed
+    Visual key: bed
+    Description: A cozy rest spot for healthy study rhythms.
+
+19. Library Wall
+    ID: furniture_library_wall
+    Price: 300 coins
+    Unlock level: 10
+    Placement target: House
+    House type: Wall
+    Visual key: library_wall
+    Description: A wall of books for the level ten library room.
+
+CHARACTER COSMETICS
+
+20. Blue Shirt
+    ID: cosmetic_blue_shirt
+    Price: 40 coins
+    Unlock level: 3
+    Placement target: Character
+    Cosmetic slot: Shirt
+    Visual key: blue_shirt
+    Max purchases: 1
+    Description: A clear-sky shirt for focused mornings.
+
+21. Green Hat
+    ID: cosmetic_green_hat
+    Price: 90 coins
+    Unlock level: 5
+    Placement target: Character
+    Cosmetic slot: Hat
+    Visual key: green_hat
+    Max purchases: 1
+    Description: A soft green cap for garden work.
+
+22. Canvas Backpack
+    ID: cosmetic_canvas_pack
+    Price: 140 coins
+    Unlock level: 6
+    Placement target: Character
+    Cosmetic slot: Backpack
+    Visual key: backpack
+    Max purchases: 1
+    Description: A small pack for notes, snacks, and ambition.
+
+UPGRADES
+
+23. Greenhouse
+    ID: decor_greenhouse
+    Price: 2,000 coins
+    Unlock level: 7
+    Placement target: Garden
+    Garden type: Structure
+    Upgrade kind: Greenhouse
+    Visual key: greenhouse
+    Max purchases: 1
+    Description: A glassy study nook for level seven growers.
+
+24. Garden Expansion 1
+    ID: upgrade_garden_10
+    Price: 300 coins
+    Unlock level: 3
+    Placement target: Upgrade
+    Upgrade kind: Garden expansion to 10x10
+    Visual key: garden_expand
+    Max purchases: 1
+    Description: Expands the garden from 8x8 to 10x10.
+
+25. Garden Expansion 2
+    ID: upgrade_garden_12
+    Price: 700 coins
+    Unlock level: 6
+    Placement target: Upgrade
+    Upgrade kind: Garden expansion to 12x12
+    Visual key: garden_expand
+    Max purchases: 1
+    Description: Expands the garden from 10x10 to 12x12.
+
+26. Garden Expansion 3
+    ID: upgrade_garden_15
+    Price: 1,500 coins
+    Unlock level: 12
+    Placement target: Upgrade
+    Upgrade kind: Garden expansion to 15x15
+    Visual key: garden_expand
+    Max purchases: 1
+    Description: Expands the garden into a roomy 15x15 grove.
+
+27. House Upgrade 1
+    ID: upgrade_house_2
+    Price: 500 coins
+    Unlock level: 4
+    Placement target: Upgrade
+    Upgrade kind: House level 2
+    Visual key: house_upgrade
+    Max purchases: 1
+    Description: Upgrades the tiny cottage into a cozy cottage.
+
+28. House Upgrade 2
+    ID: upgrade_house_3
+    Price: 1,200 coins
+    Unlock level: 8
+    Placement target: Upgrade
+    Upgrade kind: House level 3
+    Visual key: house_upgrade
+    Max purchases: 1
+    Description: Builds a study cabin with more room for furniture.
+
+29. House Upgrade 3
+    ID: upgrade_house_4
+    Price: 2,400 coins
+    Unlock level: 12
+    Placement target: Upgrade
+    Upgrade kind: House level 4
+    Visual key: house_upgrade
+    Max purchases: 1
+    Description: Turns your cabin into a scholar's home.
+
+30. House Upgrade 4
+    ID: upgrade_house_5
+    Price: 4,000 coins
+    Unlock level: 20
+    Placement target: Upgrade
+    Upgrade kind: House level 5
+    Visual key: house_upgrade
+    Max purchases: 1
+    Description: Creates the dream library house.
