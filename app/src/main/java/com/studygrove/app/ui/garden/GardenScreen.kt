@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -53,6 +54,7 @@ import com.studygrove.app.ui.components.PixelPanel
 import com.studygrove.app.ui.components.QuestList
 import com.studygrove.app.ui.components.SectionTitle
 import com.studygrove.app.ui.components.StatChip
+import com.studygrove.app.ui.components.ZoomableMapViewport
 import com.studygrove.app.ui.theme.GroveBerry
 import com.studygrove.app.ui.theme.GroveClay
 import com.studygrove.app.ui.theme.GroveCream
@@ -283,8 +285,13 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
     val objectsByTile = remember(gameData.garden.objects) {
         gameData.garden.objects.associateBy { it.x to it.y }
     }
-    PixelPanel(color = Color(0xFF9FCB72)) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    ZoomableMapViewport(
+        gridWidth = gameData.garden.width,
+        gridHeight = gameData.garden.height,
+        panelColor = Color(0xFF9FCB72),
+        maxScale = 4f
+    ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val tileSize = maxWidth / gameData.garden.width
             Column(modifier = Modifier.fillMaxWidth()) {
                 repeat(gameData.garden.height) { y ->

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,6 +35,7 @@ import com.studygrove.app.ui.components.HouseObjectSprite
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.components.PixelPanel
 import com.studygrove.app.ui.components.SectionTitle
+import com.studygrove.app.ui.components.ZoomableMapViewport
 import com.studygrove.app.ui.inventory.HouseInventoryPanel
 import com.studygrove.app.ui.theme.GroveBerry
 import com.studygrove.app.ui.theme.GroveInk
@@ -93,8 +95,13 @@ fun HouseScreen(
 private fun HouseGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
     val haptic = LocalHapticFeedback.current
     val objectsByTile = remember(gameData.house.objects) { gameData.house.objects.associateBy { it.x to it.y } }
-    PixelPanel(color = Color(0xFFC88A58)) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
+    ZoomableMapViewport(
+        gridWidth = gameData.house.width,
+        gridHeight = gameData.house.height,
+        panelColor = Color(0xFFC88A58),
+        maxScale = 3.5f
+    ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             val tileSize = maxWidth / gameData.house.width
             Column(Modifier.fillMaxWidth()) {
                 repeat(gameData.house.height) { y ->
