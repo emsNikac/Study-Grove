@@ -108,7 +108,10 @@ data class HouseState(
             2 -> "Cozy cottage"
             3 -> "Study cabin"
             4 -> "Scholar's home"
-            else -> "Dream library house"
+            5 -> "Dream library house"
+            6 -> "Reading loft"
+            7 -> "Tower study"
+            else -> "Grand scholar estate"
         }
 }
 
@@ -160,6 +163,17 @@ data class SettingsState(
 )
 
 @Serializable
+data class UpgradeState(
+    val ownedUpgradeIds: List<String> = emptyList(),
+    val focusCoinBonusPercent: Int = 0,
+    val harvestBonusPercent: Int = 0,
+    val dailyQuestBonusCoins: Int = 0,
+    val cropGrowthSessionReduction: Int = 0,
+    val greenhouseTier: Int = 0,
+    val visualTheme: String? = null
+)
+
+@Serializable
 data class ActiveTimerState(
     val preset: TimerPreset,
     val durationMinutes: Int,
@@ -179,6 +193,7 @@ data class GameData(
     val garden: GardenState = GardenState(),
     val house: HouseState = HouseState(),
     val character: CharacterCustomization = CharacterCustomization(),
+    val upgrades: UpgradeState = UpgradeState(),
     val achievements: List<Achievement> = emptyList(),
     val sessions: List<StudySession> = emptyList(),
     val activeTimer: ActiveTimerState? = null,
@@ -196,6 +211,7 @@ data class StudyReward(
     val streakBonus: Int,
     val questBonus: Int,
     val harvestBonus: Int,
+    val upgradeBonus: Int,
     val totalCoins: Int,
     val xpEarned: Int,
     val newLevel: Int,

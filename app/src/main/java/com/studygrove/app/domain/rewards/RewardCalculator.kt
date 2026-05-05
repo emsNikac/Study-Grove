@@ -35,12 +35,14 @@ object RewardCalculator {
         questBonus: Int,
         harvestBonus: Int,
         newLevel: Int,
-        completedSessionsBefore: Int
+        completedSessionsBefore: Int,
+        focusCoinBonusPercent: Int = 0
     ): StudyReward {
         val base = minutes
         val full = fullSessionBonus(minutes)
         val streakBonus = ((base + full) * streakMultiplier(newStreak)).roundToInt()
-        val total = base + full + streakBonus + questBonus + harvestBonus
+        val upgradeBonus = ((base + full + streakBonus) * (focusCoinBonusPercent.coerceAtLeast(0) / 100.0)).roundToInt()
+        val total = base + full + streakBonus + questBonus + harvestBonus + upgradeBonus
         val messages = listOf(
             "Your garden grew because you showed up.",
             "Small focus sessions build big dreams.",
@@ -54,6 +56,7 @@ object RewardCalculator {
             streakBonus = streakBonus,
             questBonus = questBonus,
             harvestBonus = harvestBonus,
+            upgradeBonus = upgradeBonus,
             totalCoins = total,
             xpEarned = minutes,
             newLevel = newLevel,

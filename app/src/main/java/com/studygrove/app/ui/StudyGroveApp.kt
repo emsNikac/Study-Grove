@@ -169,6 +169,9 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                         Text("Full-session bonus: ${sessionReward.fullSessionBonus}")
                         Text("Streak bonus: ${sessionReward.streakBonus}")
                         Text("Daily quest bonus: ${sessionReward.questBonus}")
+                        if (sessionReward.upgradeBonus > 0) {
+                            Text("Upgrade bonus: ${sessionReward.upgradeBonus}")
+                        }
                         Text("Total: ${sessionReward.totalCoins} coins, ${sessionReward.xpEarned} XP")
                     }
                 },

@@ -75,14 +75,15 @@ fun GardenScreen(
     onNavigate: (StudyGroveScreen) -> Unit
 ) {
     var showGardenInventory by remember { mutableStateOf(false) }
-    val isNight = Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).hour !in 6..18
+    val visualTheme = gameData.upgrades.visualTheme
+    val isNight = visualTheme == "night" || Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).hour !in 6..18
     Column(
         modifier = Modifier
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        GardenHeader(gameData = gameData, isNight = isNight)
+        GardenHeader(gameData = gameData, isNight = isNight, visualTheme = visualTheme)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             StatChip("Coins", gameData.player.coins.toString(), Modifier.weight(1f))
             StatChip("Level", gameData.player.level.toString(), Modifier.weight(1f))
@@ -157,7 +158,7 @@ private fun GardenActionGrid(onNavigate: (StudyGroveScreen) -> Unit) {
 }
 
 @Composable
-private fun GardenHeader(gameData: GameData, isNight: Boolean) {
+private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: String?) {
     val transition = rememberInfiniteTransition(label = "clouds")
     val drift by transition.animateFloat(
         initialValue = -40f,
@@ -165,7 +166,14 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean) {
         animationSpec = infiniteRepeatable(tween(9000), RepeatMode.Reverse),
         label = "drift"
     )
-    PixelPanel(color = if (isNight) GroveNight else GroveSky) {
+    val skyColor = when (visualTheme) {
+        "morning" -> Color(0xFFFFCFA0)
+        "weather" -> Color(0xFF8FA5AD)
+        "seasonal" -> Color(0xFFFFD6A0)
+        "observatory" -> Color(0xFF4A4D7E)
+        else -> if (isNight) GroveNight else GroveSky
+    }
+    PixelPanel(color = skyColor) {
         Box(modifier = Modifier.fillMaxWidth().height(148.dp)) {
             Canvas(Modifier.matchParentSize()) {
                 val skyAccent = if (isNight) Color(0xFFFFE6A8) else Color(0xFFFFC94A)
@@ -173,8 +181,9 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean) {
                 drawRect(skyAccent, topLeft = Offset(size.width - 4 * u, 1.2f * u), size = Size(2.4f * u, 2.4f * u))
                 drawRect(Color.White.copy(alpha = if (isNight) 0.25f else 0.9f), topLeft = Offset(1.5f * u + drift, 2.3f * u), size = Size(4 * u, u))
                 drawRect(Color.White.copy(alpha = if (isNight) 0.18f else 0.75f), topLeft = Offset(7.5f * u - drift, 3.1f * u), size = Size(3 * u, u))
-                drawRect(Color(0xFF7AA558), topLeft = Offset(0f, size.height - 28f), size = Size(size.width, 28f))
-                val houseLevel = gameData.house.level.coerceIn(1, 5)
+                val ground = if (visualTheme == "seasonal") Color(0xFFC98B5A) else Color(0xFF7AA558)
+                drawRect(ground, topLeft = Offset(0f, size.height - 28f), size = Size(size.width, 28f))
+                val houseLevel = gameData.house.level.coerceIn(1, 8)
                 val houseWidth = (3.8f + houseLevel * 0.9f) * u
                 val houseHeight = 36f + houseLevel * 5f
                 val houseX = 2.7f * u
@@ -184,14 +193,20 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean) {
                     2 -> Color(0xFFD48655)
                     3 -> Color(0xFFB96E4A)
                     4 -> Color(0xFFC77A58)
-                    else -> Color(0xFFD19864)
+                    5 -> Color(0xFFD19864)
+                    6 -> Color(0xFFC89D74)
+                    7 -> Color(0xFFB98A78)
+                    else -> Color(0xFFD9B16F)
                 }
                 val roof = when (houseLevel) {
                     1 -> Color(0xFF8D4C3B)
                     2 -> Color(0xFF7F483A)
                     3 -> Color(0xFF5E5A45)
                     4 -> Color(0xFF6B4052)
-                    else -> Color(0xFF4F5C74)
+                    5 -> Color(0xFF4F5C74)
+                    6 -> Color(0xFF4B4D63)
+                    7 -> Color(0xFF35465D)
+                    else -> Color(0xFF3D355E)
                 }
                 drawRect(GroveInk.copy(alpha = 0.18f), topLeft = Offset(houseX + 0.4f * u, size.height - 30f), size = Size(houseWidth, 5f))
                 drawRect(wall.copy(alpha = 0.65f), topLeft = Offset(houseX + 0.8f * u, houseY + 0.5f * u), size = Size(houseWidth, houseHeight))
@@ -221,9 +236,33 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean) {
                     }
                     drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth - 2.3f * u, houseY + houseHeight - 2.1f * u), size = Size(1.35f * u, 0.7f * u))
                 }
+                if (houseLevel >= 6) {
+                    drawRect(wall.copy(alpha = 0.95f), topLeft = Offset(houseX + houseWidth - 1.9f * u, houseY - 2.8f * u), size = Size(1.7f * u, 3.3f * u))
+                    drawRect(roof, topLeft = Offset(houseX + houseWidth - 2.25f * u, houseY - 3.5f * u), size = Size(2.4f * u, 0.85f * u))
+                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth - 1.35f * u, houseY - 1.7f * u), size = Size(0.55f * u, 0.55f * u))
+                }
+                if (houseLevel >= 7) {
+                    drawRect(roof.copy(alpha = 0.86f), topLeft = Offset(houseX + 0.3f * u, houseY - 3.65f * u), size = Size(2.4f * u, 1.1f * u))
+                    drawRect(wall.copy(alpha = 0.93f), topLeft = Offset(houseX + 0.65f * u, houseY - 2.75f * u), size = Size(1.65f * u, 3.1f * u))
+                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + 1.15f * u, houseY - 1.5f * u), size = Size(0.55f * u, 0.55f * u))
+                }
+                if (houseLevel >= 8) {
+                    drawRect(Color(0xFFFFD96A), topLeft = Offset(houseX + houseWidth * 0.47f, houseY - 3.85f * u), size = Size(0.9f * u, 0.9f * u))
+                    drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth * 0.47f + 0.2f * u, houseY - 3.65f * u), size = Size(0.5f * u, 0.5f * u))
+                }
                 if (isNight) {
                     repeat(7) { index ->
                         drawRect(Color(0xFFFFF4BD), topLeft = Offset((index * 2 + 1) * u, (index % 3 + 1) * u), size = Size(4f, 4f))
+                    }
+                }
+                if (visualTheme == "weather") {
+                    repeat(12) { index ->
+                        drawRect(Color(0xFFDAEEF0).copy(alpha = 0.75f), topLeft = Offset((index * 1.6f + 0.5f) * u, ((index % 4) + 1.2f) * u), size = Size(0.18f * u, 1.1f * u))
+                    }
+                }
+                if (visualTheme == "cozy_lights" || visualTheme == "golden_greenhouse") {
+                    repeat(5) { index ->
+                        drawRect(Color(0xFFFFE08A), topLeft = Offset((1.5f + index * 2.7f) * u, size.height - 22f), size = Size(0.45f * u, 0.45f * u))
                     }
                 }
             }
@@ -300,7 +339,7 @@ private fun GardenTileBox(
             when (objectType) {
                 GardenObjectType.PATH -> drawGardenPathTile(item?.visualKey.orEmpty())
                 GardenObjectType.WATER -> drawGardenPondTile()
-                GardenObjectType.FENCE -> drawGardenFenceTile(fenceConnections)
+                GardenObjectType.FENCE -> drawGardenFenceTile(item?.visualKey.orEmpty(), fenceConnections)
                 else -> if (clover && objectOnTile == null) {
                     val u = size.minDimension / 10f
                     drawRect(GroveLeaf.copy(alpha = 0.55f), topLeft = Offset(4.5f * u, 2.4f * u), size = Size(u, 5.2f * u))
@@ -323,28 +362,80 @@ private data class FenceConnections(
     val down: Boolean = false
 )
 
+private fun String.hasGardenAny(vararg needles: String): Boolean = needles.any { contains(it) }
+
+private fun Color.gardenShade(amount: Float): Color =
+    Color(
+        red = (red * amount).coerceIn(0f, 1f),
+        green = (green * amount).coerceIn(0f, 1f),
+        blue = (blue * amount).coerceIn(0f, 1f),
+        alpha = alpha
+    )
+
+private fun Color.gardenLight(amount: Float): Color =
+    Color(
+        red = (red + (1f - red) * amount).coerceIn(0f, 1f),
+        green = (green + (1f - green) * amount).coerceIn(0f, 1f),
+        blue = (blue + (1f - blue) * amount).coerceIn(0f, 1f),
+        alpha = alpha
+    )
+
+private fun gardenPathColor(key: String): Color = when {
+    key.contains("dirt") -> Color(0xFF9B6942)
+    key.contains("grass") || key.contains("leafy") -> Color(0xFF70A95C)
+    key.contains("sand") -> Color(0xFFE2C876)
+    key.contains("snow") || key.contains("cloud") -> Color(0xFFEAF2F0)
+    key.contains("brick") -> Color(0xFFC5654B)
+    key.contains("blue") || key.contains("waterline") -> Color(0xFF5F9CC7)
+    key.contains("rainbow") -> GroveBerry
+    key.contains("carpet") -> Color(0xFF7B5EA8)
+    key.hasGardenAny("star", "gold", "mastery") -> Color(0xFFE1B748)
+    key.hasGardenAny("stone", "pebble", "slate", "marble", "moon", "diamond", "ruin") -> Color(0xFF9EA3A1)
+    key.hasGardenAny("aurora", "planet", "celestial", "eternal") -> Color(0xFF6976A7)
+    key.contains("dark_wood") -> Color(0xFF7A4D31)
+    key.contains("cherry") -> Color(0xFFC27678)
+    else -> Color(0xFFB97948)
+}
+
+private fun gardenFenceColor(key: String): Color = when {
+    key.contains("white") -> Color(0xFFF6EBD0)
+    key.contains("bamboo") -> Color(0xFFD4B95F)
+    key.hasGardenAny("iron", "clockwork") -> Color(0xFF788087)
+    key.hasGardenAny("gold", "royal") -> Color(0xFFDDAA39)
+    key.hasGardenAny("crystal", "celestial", "dream") -> Color(0xFFA7D9DD)
+    key.hasGardenAny("hedge", "ivy", "bonsai") -> Color(0xFF4E8B4E)
+    else -> Color(0xFFC9874D)
+}
+
 private fun DrawScope.drawGardenPathTile(key: String) {
     val u = size.minDimension / 10f
-    if (key.contains("stone")) {
-        drawRect(Color(0xFF6D7776), size = size)
-        drawRect(Color(0xFFB9C2BD), topLeft = Offset(0.4f * u, 0.5f * u), size = Size(4.2f * u, 3.7f * u))
-        drawRect(Color(0xFF939D98), topLeft = Offset(0.4f * u, 3.5f * u), size = Size(4.2f * u, 0.7f * u))
-        drawRect(Color(0xFFAEB7B3), topLeft = Offset(5f * u, 0.7f * u), size = Size(4.4f * u, 4f * u))
-        drawRect(Color(0xFF87918D), topLeft = Offset(5f * u, 4f * u), size = Size(4.4f * u, 0.7f * u))
-        drawRect(Color(0xFFC5CDC8), topLeft = Offset(0.8f * u, 5.3f * u), size = Size(3.5f * u, 3.8f * u))
-        drawRect(Color(0xFF959E9A), topLeft = Offset(0.8f * u, 8.4f * u), size = Size(3.5f * u, 0.7f * u))
-        drawRect(Color(0xFFADB8B2), topLeft = Offset(4.8f * u, 5.5f * u), size = Size(4.6f * u, 3.6f * u))
-        drawRect(Color(0xFF87918D), topLeft = Offset(4.8f * u, 8.3f * u), size = Size(4.6f * u, 0.8f * u))
+    val base = gardenPathColor(key)
+    if (key.hasGardenAny("stone", "pebble", "slate", "marble", "moon", "diamond", "ruin")) {
+        drawRect(base.gardenShade(0.65f), size = size)
+        drawRect(base.gardenLight(0.25f), topLeft = Offset(0.4f * u, 0.5f * u), size = Size(4.2f * u, 3.7f * u))
+        drawRect(base.gardenShade(0.8f), topLeft = Offset(0.4f * u, 3.5f * u), size = Size(4.2f * u, 0.7f * u))
+        drawRect(base.gardenLight(0.18f), topLeft = Offset(5f * u, 0.7f * u), size = Size(4.4f * u, 4f * u))
+        drawRect(base.gardenShade(0.78f), topLeft = Offset(5f * u, 4f * u), size = Size(4.4f * u, 0.7f * u))
+        drawRect(base.gardenLight(0.32f), topLeft = Offset(0.8f * u, 5.3f * u), size = Size(3.5f * u, 3.8f * u))
+        drawRect(base.gardenShade(0.82f), topLeft = Offset(0.8f * u, 8.4f * u), size = Size(3.5f * u, 0.7f * u))
+        drawRect(base.gardenLight(0.2f), topLeft = Offset(4.8f * u, 5.5f * u), size = Size(4.6f * u, 3.6f * u))
+        drawRect(base.gardenShade(0.78f), topLeft = Offset(4.8f * u, 8.3f * u), size = Size(4.6f * u, 0.8f * u))
     } else {
-        drawRect(Color(0xFF8E5838), size = size)
+        drawRect(base.gardenShade(0.7f), size = size)
         repeat(4) { row ->
             val top = row * 2.5f * u
-            val plank = if (row % 2 == 0) Color(0xFFC98954) else Color(0xFFB87445)
+            val plank = if (row % 2 == 0) base.gardenLight(0.12f) else base
             drawRect(plank, topLeft = Offset(0f, top), size = Size(size.width, 2.1f * u))
-            drawRect(Color(0xFF74442C), topLeft = Offset(0f, top + 1.9f * u), size = Size(size.width, 0.35f * u))
+            drawRect(base.gardenShade(0.58f), topLeft = Offset(0f, top + 1.9f * u), size = Size(size.width, 0.35f * u))
             drawRect(Color.White.copy(alpha = 0.13f), topLeft = Offset(u, top + 0.4f * u), size = Size(3.5f * u, 0.35f * u))
         }
-        drawRect(Color(0xFF5D3726).copy(alpha = 0.45f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
+        if (key.hasGardenAny("flower", "leaf", "firefly", "star", "planet", "aurora")) {
+            repeat(3) { index ->
+                val accent = listOf(GroveBerry, Color(0xFFFFE08A), Color(0xFFBDE7E7))[index]
+                drawRect(accent, topLeft = Offset((1.4f + index * 2.3f) * u, (2.1f + index % 2 * 2.1f) * u), size = Size(0.7f * u, 0.7f * u))
+            }
+        }
+        drawRect(base.gardenShade(0.55f).copy(alpha = 0.45f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
     }
 }
 
@@ -361,11 +452,11 @@ private fun DrawScope.drawGardenPondTile() {
     drawRect(GroveLeaf.copy(alpha = 0.75f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
 }
 
-private fun DrawScope.drawGardenFenceTile(connections: FenceConnections) {
+private fun DrawScope.drawGardenFenceTile(key: String, connections: FenceConnections) {
     val u = size.minDimension / 10f
-    val woodTop = Color(0xFFC9874D)
-    val woodSide = Color(0xFF8D5634)
-    val woodDark = Color(0xFF5B3525)
+    val woodTop = gardenFenceColor(key)
+    val woodSide = woodTop.gardenShade(0.72f)
+    val woodDark = woodTop.gardenShade(0.48f)
     val shadow = GroveInk.copy(alpha = 0.2f)
 
     drawRect(shadow, topLeft = Offset(1.3f * u, 7.8f * u), size = Size(7.5f * u, 1.1f * u))
@@ -377,9 +468,14 @@ private fun DrawScope.drawGardenFenceTile(connections: FenceConnections) {
         val start = if (connections.left) 0f else 1.4f * u
         val end = if (connections.right) size.width else 8.6f * u
         val width = end - start
-        drawRect(woodSide, topLeft = Offset(start, 5.4f * u), size = Size(width, 1.35f * u))
-        drawRect(woodTop, topLeft = Offset(start, 4.6f * u), size = Size(width, 0.95f * u))
-        drawRect(Color.White.copy(alpha = 0.18f), topLeft = Offset(start, 4.7f * u), size = Size(width, 0.25f * u))
+        if (key.contains("rope")) {
+            drawRect(Color(0xFFD8B06E), topLeft = Offset(start, 4.9f * u), size = Size(width, 0.5f * u))
+            drawRect(Color(0xFFD8B06E), topLeft = Offset(start, 6f * u), size = Size(width, 0.45f * u))
+        } else {
+            drawRect(woodSide, topLeft = Offset(start, 5.4f * u), size = Size(width, 1.35f * u))
+            drawRect(woodTop, topLeft = Offset(start, 4.6f * u), size = Size(width, 0.95f * u))
+            drawRect(Color.White.copy(alpha = 0.18f), topLeft = Offset(start, 4.7f * u), size = Size(width, 0.25f * u))
+        }
     }
 
     if (vertical) {

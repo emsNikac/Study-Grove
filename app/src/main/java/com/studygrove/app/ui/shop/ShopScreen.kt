@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.studygrove.app.data.model.GameData
+import com.studygrove.app.data.model.PlacementTarget
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.data.model.ShopCategory
 import com.studygrove.app.data.model.ShopItem
@@ -86,10 +87,11 @@ private fun ShopCategoryGrid(
 private fun ShopItemRow(gameData: GameData, item: ShopItem, onBuyItem: (String) -> Unit) {
     val testMode = gameData.settings.testModeEnabled
     val ownedCount = gameData.player.purchasedCounts[item.id] ?: 0
-    val ownedMax = item.maxPurchases != null && ownedCount >= item.maxPurchases
+    val upgradeEnabled = item.placementTarget == PlacementTarget.UPGRADE && item.id in gameData.upgrades.ownedUpgradeIds
+    val ownedMax = item.maxPurchases != null && (ownedCount >= item.maxPurchases || upgradeEnabled)
     val unlocked = testMode || gameData.player.level >= item.unlockLevel
     val affordable = testMode || gameData.player.coins >= item.price
-    val enabled = testMode || (unlocked && affordable && !ownedMax)
+    val enabled = (testMode && !upgradeEnabled) || (unlocked && affordable && !ownedMax)
     PixelPanel(color = if (unlocked) Color(0xFFFFF0CE) else Color(0xFFE7DCCB)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             InventoryItemSprite(item = item, modifier = Modifier.size(54.dp).padding(2.dp))
@@ -108,7 +110,7 @@ private fun ShopItemRow(gameData: GameData, item: ShopItem, onBuyItem: (String) 
                 )
             }
             PixelButton(
-                text = if (testMode) "Test" else if (ownedMax) "Owned" else "Buy",
+                text = if (upgradeEnabled) "Enabled" else if (testMode) "Test" else if (ownedMax) "Owned" else "Buy",
                 enabled = enabled,
                 color = if (enabled) GroveLeaf else GroveBerry,
                 onClick = { onBuyItem(item.id) }

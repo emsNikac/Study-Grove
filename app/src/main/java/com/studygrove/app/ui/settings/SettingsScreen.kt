@@ -7,9 +7,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -157,6 +159,7 @@ private fun SettingSwitchRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     title,
+                    color = GroveInk,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 14.sp,
@@ -165,6 +168,15 @@ private fun SettingSwitchRow(
                 )
                 Text(description, color = GroveInk.copy(alpha = 0.7f))
             }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                if (checked) "On" else "Off",
+                color = GroveInk,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp
+            )
+            Spacer(Modifier.width(8.dp))
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
     }

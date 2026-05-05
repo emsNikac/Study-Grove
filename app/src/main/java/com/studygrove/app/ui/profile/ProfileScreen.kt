@@ -62,7 +62,23 @@ fun ProfileScreen(
         SectionTitle("Profile")
         PixelPanel(color = GroveCream) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                CharacterSprite(gameData.character, Modifier.size(92.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CharacterSprite(gameData.character, Modifier.size(92.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(GroveMoss)
+                            .border(2.dp, GroveInk.copy(alpha = 0.35f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "LEVEL ${gameData.player.level}",
+                            color = GroveCream,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Level ${gameData.player.level} Grove Keeper", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, fontSize = 18.sp)
                     PixelProgressBar(progress = levelXp.toFloat() / nextXp.toFloat(), fill = GroveLeaf)
@@ -78,6 +94,28 @@ fun ProfileScreen(
             StatChip("Minutes", gameData.player.totalStudyMinutes.toString(), Modifier.weight(1f))
             StatChip("Sessions", gameData.player.completedSessions.toString(), Modifier.weight(1f))
             StatChip("Best streak", "${gameData.player.longestStreak}d", Modifier.weight(1f))
+        }
+        if (gameData.upgrades.ownedUpgradeIds.isNotEmpty()) {
+            SectionTitle("Upgrade effects")
+            PixelPanel(color = GroveCream) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "${gameData.upgrades.ownedUpgradeIds.size} upgrades enabled",
+                        color = GroveInk,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text("Study coin bonus: ${gameData.upgrades.focusCoinBonusPercent}%", color = GroveInk.copy(alpha = 0.78f), fontSize = 12.sp)
+                    Text("Harvest bonus: ${gameData.upgrades.harvestBonusPercent}%", color = GroveInk.copy(alpha = 0.78f), fontSize = 12.sp)
+                    Text("Daily quest bonus: +${gameData.upgrades.dailyQuestBonusCoins} coins", color = GroveInk.copy(alpha = 0.78f), fontSize = 12.sp)
+                    if (gameData.upgrades.cropGrowthSessionReduction > 0) {
+                        Text("Crop growth: -${gameData.upgrades.cropGrowthSessionReduction} session", color = GroveInk.copy(alpha = 0.78f), fontSize = 12.sp)
+                    }
+                    gameData.upgrades.visualTheme?.let { theme ->
+                        Text("Visual theme: ${theme.replace('_', ' ')}", color = GroveInk.copy(alpha = 0.78f), fontSize = 12.sp)
+                    }
+                }
+            }
         }
         SectionTitle("Study history")
         StudyHistoryCalendar(gameData)

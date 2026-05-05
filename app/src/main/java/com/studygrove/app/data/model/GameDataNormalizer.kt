@@ -33,11 +33,24 @@ fun GameData.normalized(
         currentStreak = player.currentStreak.coerceAtLeast(0),
         longestStreak = player.longestStreak.coerceAtLeast(player.currentStreak.coerceAtLeast(0))
     )
+    val knownUpgradeIds = ShopCatalog.items
+        .filter { it.category == ShopCategory.UPGRADES || it.upgradeKind != null }
+        .map { it.id }
+        .toSet()
+    val normalizedUpgrades = upgrades.copy(
+        ownedUpgradeIds = upgrades.ownedUpgradeIds.filter { it in knownUpgradeIds }.distinct(),
+        focusCoinBonusPercent = upgrades.focusCoinBonusPercent.coerceIn(0, 60),
+        harvestBonusPercent = upgrades.harvestBonusPercent.coerceIn(0, 75),
+        dailyQuestBonusCoins = upgrades.dailyQuestBonusCoins.coerceIn(0, 80),
+        cropGrowthSessionReduction = upgrades.cropGrowthSessionReduction.coerceIn(0, 2),
+        greenhouseTier = upgrades.greenhouseTier.coerceIn(0, 6)
+    )
     return copy(
         player = normalizedPlayer,
         inventory = inventory.filter { it.quantity > 0 && ShopCatalog.byId(it.shopItemId) != null },
         garden = normalizedGarden,
         house = normalizedHouse,
+        upgrades = normalizedUpgrades,
         achievements = normalizedAchievements,
         dailyQuests = normalizedQuests,
         sessions = sessions.sortedByDescending { it.completedAtEpochMillis }.take(365)
@@ -45,8 +58,8 @@ fun GameData.normalized(
 }
 
 fun GardenState.normalized(): GardenState {
-    val safeWidth = width.coerceIn(8, 15)
-    val safeHeight = height.coerceIn(8, 15)
+    val safeWidth = width.coerceIn(8, 30)
+    val safeHeight = height.coerceIn(8, 30)
     val knownItems = ShopCatalog.placeableGardenItems()
     val safeObjects = objects
         .filter { it.x in 0 until safeWidth && it.y in 0 until safeHeight && it.shopItemId in knownItems }
@@ -60,9 +73,9 @@ fun GardenState.normalized(): GardenState {
 }
 
 fun HouseState.normalized(): HouseState {
-    val safeLevel = level.coerceIn(1, 5)
-    val safeWidth = (5 + safeLevel).coerceIn(6, 10)
-    val safeHeight = (4 + (safeLevel / 2)).coerceIn(5, 7)
+    val safeLevel = level.coerceIn(1, 8)
+    val safeWidth = (5 + safeLevel).coerceIn(6, 13)
+    val safeHeight = (4 + (safeLevel / 2)).coerceIn(5, 8)
     val knownItems = ShopCatalog.placeableHouseItems()
     val safeObjects = objects
         .filter { it.x in 0 until safeWidth && it.y in 0 until safeHeight && it.shopItemId in knownItems }

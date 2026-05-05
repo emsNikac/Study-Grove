@@ -9,7 +9,6 @@ import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
 import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.HouseObject
-import com.studygrove.app.data.model.HouseObjectType
 import com.studygrove.app.data.model.InventoryItem
 import com.studygrove.app.data.model.PlacementResult
 import com.studygrove.app.data.model.PlacementTarget
@@ -31,6 +30,7 @@ import com.studygrove.app.domain.rewards.RewardCalculator
 import com.studygrove.app.domain.timer.FocusTimerEngine
 import kotlinx.coroutines.flow.Flow
 import java.time.ZoneId
+import kotlin.math.roundToInt
 
 class StudyGroveRepository(
     private val localDataSource: StudyGroveLocalDataSource,
@@ -148,10 +148,11 @@ class StudyGroveRepository(
             val calculatedReward = RewardCalculator.calculate(
                 minutes = timer.durationMinutes,
                 newStreak = newStreak,
-                questBonus = questResult.bonusCoins,
+                questBonus = questResult.bonusCoins + if (questResult.bonusCoins > 0) data.upgrades.dailyQuestBonusCoins else 0,
                 harvestBonus = 0,
                 newLevel = newLevel,
-                completedSessionsBefore = data.player.completedSessions
+                completedSessionsBefore = data.player.completedSessions,
+                focusCoinBonusPercent = data.upgrades.focusCoinBonusPercent
             )
             val session = StudySession(
                 id = "session_$nowMillis",
@@ -257,6 +258,11 @@ class StudyGroveRepository(
                     data
                 }
                 else -> {
+                    val growthSessions = if (item.growthSessions > 0) {
+                        (item.growthSessions - data.upgrades.cropGrowthSessionReduction).coerceAtLeast(1)
+                    } else {
+                        0
+                    }
                     // Seeds become crop objects with a session counter; every completed study
                     // session advances those counters through GardenGrowthEngine.
                     val newObject = GardenObject(
@@ -265,8 +271,8 @@ class StudyGroveRepository(
                         x = x,
                         y = y,
                         type = item.gardenObjectType,
-                        growthStage = if (item.growthSessions > 0) 0 else 1,
-                        sessionsRemaining = item.growthSessions,
+                        growthStage = if (growthSessions > 0) 0 else 1,
+                        sessionsRemaining = growthSessions,
                         placedAtEpochMillis = nowMillis
                     )
                     val today = todayString(nowMillis, zoneId)
@@ -275,11 +281,12 @@ class StudyGroveRepository(
                     } else {
                         DailyQuestEngine.ensureToday(data.dailyQuests, today).let { DailyQuestEngine.onSessionCompleted(it, today, 0) }
                     }
-                    val playerWithQuestCoins = data.player.copy(coins = data.player.coins + questResult.bonusCoins)
+                    val questCoins = questResult.bonusCoins + if (questResult.bonusCoins > 0) data.upgrades.dailyQuestBonusCoins else 0
+                    val playerWithQuestCoins = data.player.copy(coins = data.player.coins + questCoins)
                     result = PlacementResult(
                         true,
-                        if (questResult.bonusCoins > 0) {
-                            "Placed ${item.name}. Daily quest complete: +${questResult.bonusCoins} coins."
+                        if (questCoins > 0) {
+                            "Placed ${item.name}. Daily quest complete: +$questCoins coins."
                         } else {
                             "Placed ${item.name}."
                         }
@@ -307,9 +314,11 @@ class StudyGroveRepository(
             val item = ShopCatalog.byId(gardenObject.shopItemId) ?: return@update data
             val remainingObjects = data.garden.objects.filterNot { it.id == gardenObject.id }
             if (gardenObject.type == GardenObjectType.CROP && gardenObject.sessionsRemaining == 0) {
-                result = PlacementResult(true, "Harvested ${item.name.removeSuffix(" Seed")} for ${item.harvestCoins} coins.")
+                val upgradeBonus = (item.harvestCoins * (data.upgrades.harvestBonusPercent / 100.0)).roundToInt()
+                val harvestCoins = item.harvestCoins + upgradeBonus
+                result = PlacementResult(true, "Harvested ${item.name.removeSuffix(" Seed")} for $harvestCoins coins.")
                 data.copy(
-                    player = data.player.copy(coins = data.player.coins + item.harvestCoins),
+                    player = data.player.copy(coins = data.player.coins + harvestCoins),
                     garden = data.garden.copy(objects = remainingObjects)
                 )
             } else {
@@ -340,11 +349,6 @@ class StudyGroveRepository(
         localDataSource.update { data ->
             val hasItem = data.settings.testModeEnabled || data.inventory.any { it.shopItemId == item.id && it.quantity > 0 }
             val occupied = data.house.objects.any { it.x == x && it.y == y }
-            val bedPlacementProblem = if (item.houseObjectType == HouseObjectType.BED) {
-                data.house.objects.bedPlacementProblem(x, y)
-            } else {
-                null
-            }
             when {
                 x !in 0 until data.house.width || y !in 0 until data.house.height -> {
                     result = PlacementResult(false, "That spot is outside the room.")
@@ -356,10 +360,6 @@ class StudyGroveRepository(
                 }
                 !hasItem -> {
                     result = PlacementResult(false, "You do not have ${item.name} in your inventory.")
-                    data
-                }
-                bedPlacementProblem != null -> {
-                    result = PlacementResult(false, bedPlacementProblem)
                     data
                 }
                 else -> {
@@ -460,16 +460,106 @@ class StudyGroveRepository(
             PlacementTarget.UPGRADE -> applyUpgrade(data, item)
         }
 
-    private fun applyUpgrade(data: GameData, item: ShopItem): GameData = when (item.upgradeKind) {
-        UpgradeKind.GARDEN_EXPANSION_10 -> data.copy(garden = data.garden.copy(width = 10, height = 10)).normalized()
-        UpgradeKind.GARDEN_EXPANSION_12 -> data.copy(garden = data.garden.copy(width = 12, height = 12)).normalized()
-        UpgradeKind.GARDEN_EXPANSION_15 -> data.copy(garden = data.garden.copy(width = 15, height = 15)).normalized()
-        UpgradeKind.HOUSE_LEVEL_2 -> data.copy(house = data.house.copy(level = maxOf(data.house.level, 2))).normalized()
-        UpgradeKind.HOUSE_LEVEL_3 -> data.copy(house = data.house.copy(level = maxOf(data.house.level, 3))).normalized()
-        UpgradeKind.HOUSE_LEVEL_4 -> data.copy(house = data.house.copy(level = maxOf(data.house.level, 4))).normalized()
-        UpgradeKind.HOUSE_LEVEL_5 -> data.copy(house = data.house.copy(level = maxOf(data.house.level, 5))).normalized()
-        UpgradeKind.GREENHOUSE, null -> data
+    private fun applyUpgrade(data: GameData, item: ShopItem): GameData {
+        val alreadyOwned = item.id in data.upgrades.ownedUpgradeIds
+        val marked = data.copy(
+            upgrades = data.upgrades.copy(
+                ownedUpgradeIds = (data.upgrades.ownedUpgradeIds + item.id).distinct()
+            )
+        )
+        if (alreadyOwned) return marked
+        return applyCatalogUpgradeEffect(marked, item).normalized()
     }
+
+    private fun applyCatalogUpgradeEffect(data: GameData, item: ShopItem): GameData = when {
+        item.upgradeKind == UpgradeKind.GARDEN_EXPANSION_10 -> data.withGardenSize(10)
+        item.upgradeKind == UpgradeKind.GARDEN_EXPANSION_12 -> data.withGardenSize(12)
+        item.upgradeKind == UpgradeKind.GARDEN_EXPANSION_15 -> data.withGardenSize(15)
+        item.id == "upgrade_garden_18" -> data.withGardenSize(18)
+        item.id == "upgrade_garden_20" -> data.withGardenSize(20)
+        item.id == "upgrade_garden_24" -> data.withGardenSize(24)
+        item.id == "upgrade_garden_30" -> data.withGardenSize(30)
+
+        item.upgradeKind == UpgradeKind.HOUSE_LEVEL_2 -> data.withHouseLevel(2)
+        item.upgradeKind == UpgradeKind.HOUSE_LEVEL_3 -> data.withHouseLevel(3)
+        item.upgradeKind == UpgradeKind.HOUSE_LEVEL_4 -> data.withHouseLevel(4)
+        item.upgradeKind == UpgradeKind.HOUSE_LEVEL_5 -> data.withHouseLevel(5)
+        item.id == "upgrade_house_6" || item.id == "upgrade_house_room_2" -> data.withHouseLevel(6)
+        item.id == "upgrade_house_7" || item.id == "upgrade_house_room_3" -> data.withHouseLevel(7)
+        item.id == "upgrade_house_room_4" ||
+            item.id == "upgrade_dream_library_wing" ||
+            item.id == "upgrade_grand_scholar_estate" -> data.withHouseLevel(8)
+
+        item.id == "upgrade_crop_watering_bonus" -> data.withUpgradeBonuses(growthReduction = 1, harvestPercent = 2)
+        item.id == "upgrade_crop_harvest_bonus_1" -> data.withUpgradeBonuses(harvestPercent = 5)
+        item.id == "upgrade_crop_harvest_bonus_2" -> data.withUpgradeBonuses(harvestPercent = 10)
+        item.id == "upgrade_master_crop_license" -> data.withUpgradeBonuses(harvestPercent = 5, growthReduction = 1)
+        item.id == "upgrade_crop_markers" || item.id == "upgrade_crop_journal" -> data.withUpgradeBonuses(harvestPercent = 2)
+
+        item.id == "upgrade_daily_quest_board" -> data.withUpgradeBonuses(questCoins = 4)
+        item.id == "upgrade_advanced_daily_quests" -> data.withUpgradeBonuses(questCoins = 8)
+        item.id == "upgrade_weekly_quest_board" -> data.withUpgradeBonuses(questCoins = 12)
+
+        item.id == "upgrade_focus_bell" -> data.withUpgradeBonuses(focusPercent = 2)
+        item.id == "upgrade_study_desk_bonus" -> data.withUpgradeBonuses(focusPercent = 4)
+        item.id == "upgrade_focus_streak_bonus_2" -> data.withUpgradeBonuses(focusPercent = 5)
+        item.id == "upgrade_eternal_study_bonus" -> data.withUpgradeBonuses(focusPercent = 8)
+        item.id == "upgrade_study_grove_legacy" -> data.withUpgradeBonuses(focusPercent = 10, harvestPercent = 5, questCoins = 5)
+
+        item.id == "upgrade_greenhouse_shelf_1" -> data.withUpgradeBonuses(harvestPercent = 3, greenhouseTier = 1)
+        item.id == "upgrade_greenhouse_shelf_2" -> data.withUpgradeBonuses(harvestPercent = 4, greenhouseTier = 1)
+        item.id == "upgrade_greenhouse_shelf_3" -> data.withUpgradeBonuses(harvestPercent = 5, greenhouseTier = 1)
+        item.id == "upgrade_golden_greenhouse_frame" -> data.withUpgradeBonuses(harvestPercent = 6, greenhouseTier = 1, visualTheme = "golden_greenhouse")
+        item.upgradeKind == UpgradeKind.GREENHOUSE -> data.withUpgradeBonuses(harvestPercent = 2, greenhouseTier = 1)
+
+        item.id == "upgrade_morning_theme" -> data.withUpgradeBonuses(focusPercent = 1, visualTheme = "morning")
+        item.id == "upgrade_night_theme" -> data.withUpgradeBonuses(focusPercent = 1, visualTheme = "night")
+        item.id == "upgrade_weather_visual_pack" -> data.withUpgradeBonuses(focusPercent = 1, visualTheme = "weather")
+        item.id == "upgrade_seasonal_garden_pack" -> data.withUpgradeBonuses(harvestPercent = 2, visualTheme = "seasonal")
+        item.id == "upgrade_cozy_lighting_pack" -> data.withUpgradeBonuses(focusPercent = 1, visualTheme = "cozy_lights")
+
+        item.id == "upgrade_tool_shed" ||
+            item.id == "upgrade_seed_pouch_1" ||
+            item.id == "upgrade_inventory_bag_1" ||
+            item.id == "upgrade_inventory_bag_2" ||
+            item.id == "upgrade_auto_sort_inventory" ||
+            item.id == "upgrade_garden_presets" ||
+            item.id == "upgrade_garden_search_mode" ||
+            item.id == "upgrade_library_catalog" ||
+            item.id == "upgrade_achievement_hall" ||
+            item.id == "upgrade_study_journal" ||
+            item.id == "upgrade_study_music_box" ||
+            item.id == "upgrade_furniture_capacity_1" ||
+            item.id == "upgrade_garden_capacity_1" -> data.withUpgradeBonuses(focusPercent = 1)
+
+        item.id == "upgrade_scholar_statue_plaza" -> data.withUpgradeBonuses(questCoins = 5, visualTheme = "plaza")
+        item.id == "upgrade_celestial_observatory" -> data.withHouseLevel(8).withUpgradeBonuses(focusPercent = 4, visualTheme = "observatory")
+        else -> data.withUpgradeBonuses(focusPercent = 1)
+    }
+
+    private fun GameData.withGardenSize(size: Int): GameData =
+        copy(garden = garden.copy(width = maxOf(garden.width, size), height = maxOf(garden.height, size)))
+
+    private fun GameData.withHouseLevel(level: Int): GameData =
+        copy(house = house.copy(level = maxOf(house.level, level)))
+
+    private fun GameData.withUpgradeBonuses(
+        focusPercent: Int = 0,
+        harvestPercent: Int = 0,
+        questCoins: Int = 0,
+        growthReduction: Int = 0,
+        greenhouseTier: Int = 0,
+        visualTheme: String? = null
+    ): GameData = copy(
+        upgrades = upgrades.copy(
+            focusCoinBonusPercent = upgrades.focusCoinBonusPercent + focusPercent,
+            harvestBonusPercent = upgrades.harvestBonusPercent + harvestPercent,
+            dailyQuestBonusCoins = upgrades.dailyQuestBonusCoins + questCoins,
+            cropGrowthSessionReduction = upgrades.cropGrowthSessionReduction + growthReduction,
+            greenhouseTier = upgrades.greenhouseTier + greenhouseTier,
+            visualTheme = visualTheme ?: upgrades.visualTheme
+        )
+    )
 
     private fun List<InventoryItem>.add(itemId: String, nowMillis: Long): List<InventoryItem> {
         val existing = firstOrNull { it.shopItemId == itemId }
@@ -489,34 +579,6 @@ class StudyGroveRepository(
                 item
             }
         }
-
-    private fun List<HouseObject>.bedPlacementProblem(x: Int, y: Int): String? {
-        val existingBeds = filter { it.type == HouseObjectType.BED }.map { it.x to it.y }.toSet()
-        val newTile = x to y
-        val hasAdjacentBed = listOf(x - 1 to y, x + 1 to y, x to (y - 1), x to (y + 1)).any { it in existingBeds }
-        if (!hasAdjacentBed) return null
-
-        val allBeds = existingBeds + newTile
-        val connectedBeds = mutableSetOf<Pair<Int, Int>>()
-        val frontier = ArrayDeque<Pair<Int, Int>>()
-        frontier.add(newTile)
-        while (frontier.isNotEmpty()) {
-            val tile = frontier.removeFirst()
-            if (!connectedBeds.add(tile)) continue
-            val (tileX, tileY) = tile
-            listOf(tileX - 1 to tileY, tileX + 1 to tileY, tileX to (tileY - 1), tileX to (tileY + 1))
-                .filter { it in allBeds && it !in connectedBeds }
-                .forEach(frontier::add)
-        }
-
-        val formsRow = connectedBeds.map { it.second }.distinct().size == 1
-        val formsColumn = connectedBeds.map { it.first }.distinct().size == 1
-        return if (formsRow || formsColumn) {
-            null
-        } else {
-            "Beds can connect into one straight row or one straight column, not a block."
-        }
-    }
 
     private fun CharacterCustomization.equip(item: ShopItem): CharacterCustomization = when (item.cosmeticSlot) {
         CosmeticSlot.SHIRT -> copy(shirt = item.visualKey)
