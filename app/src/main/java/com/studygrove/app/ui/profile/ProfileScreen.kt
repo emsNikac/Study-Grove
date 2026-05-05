@@ -12,9 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -28,11 +32,14 @@ import com.studygrove.app.data.model.GameData
 import com.studygrove.app.domain.progression.ProgressionRules
 import com.studygrove.app.ui.components.AchievementRow
 import com.studygrove.app.ui.components.CharacterSprite
+import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.components.PixelPanel
 import com.studygrove.app.ui.components.PixelProgressBar
 import com.studygrove.app.ui.components.SectionTitle
 import com.studygrove.app.ui.components.StatChip
+import com.studygrove.app.ui.inventory.CosmeticInventoryPanel
 import com.studygrove.app.ui.theme.GroveBerry
+import com.studygrove.app.ui.theme.GroveClay
 import com.studygrove.app.ui.theme.GroveCream
 import com.studygrove.app.ui.theme.GroveInk
 import com.studygrove.app.ui.theme.GroveLeaf
@@ -40,7 +47,12 @@ import com.studygrove.app.ui.theme.GroveMoss
 import java.time.LocalDate
 
 @Composable
-fun ProfileScreen(gameData: GameData) {
+fun ProfileScreen(
+    gameData: GameData,
+    onEquipCosmetic: (String) -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    var showCosmetics by remember { mutableStateOf(false) }
     val levelXp = ProgressionRules.xpIntoCurrentLevel(gameData.player.xp)
     val nextXp = ProgressionRules.xpNeededForNextLevel(gameData.player.xp)
     Column(
@@ -55,6 +67,10 @@ fun ProfileScreen(gameData: GameData) {
                     Text("Level ${gameData.player.level} Grove Keeper", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, fontSize = 18.sp)
                     PixelProgressBar(progress = levelXp.toFloat() / nextXp.toFloat(), fill = GroveLeaf)
                     Text("$levelXp / $nextXp XP to next level", color = GroveInk.copy(alpha = 0.7f), fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        PixelButton("Cosmetics", modifier = Modifier.weight(1f), color = GroveBerry, onClick = { showCosmetics = true })
+                        PixelButton("Settings", modifier = Modifier.weight(1f), color = GroveClay, onClick = onOpenSettings)
+                    }
                 }
             }
         }
@@ -73,6 +89,23 @@ fun ProfileScreen(gameData: GameData) {
                 }
             }
         }
+    }
+    if (showCosmetics) {
+        AlertDialog(
+            onDismissRequest = { showCosmetics = false },
+            title = {
+                Text("Cosmetics", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+            },
+            text = {
+                CosmeticInventoryPanel(gameData = gameData) { itemId ->
+                    showCosmetics = false
+                    onEquipCosmetic(itemId)
+                }
+            },
+            confirmButton = {
+                PixelButton("Close", color = GroveMoss) { showCosmetics = false }
+            }
+        )
     }
 }
 

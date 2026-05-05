@@ -22,10 +22,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -44,6 +47,7 @@ import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.ui.StudyGroveScreen
 import com.studygrove.app.ui.components.GardenObjectSprite
+import com.studygrove.app.ui.inventory.GardenInventoryPanel
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.components.PixelPanel
 import com.studygrove.app.ui.components.QuestList
@@ -66,9 +70,11 @@ fun GardenScreen(
     selectedItemId: String?,
     nowMillis: Long,
     onTileTapped: (Int, Int) -> Unit,
+    onSelectGardenItem: (String) -> Unit,
     onClearSelection: () -> Unit,
     onNavigate: (StudyGroveScreen) -> Unit
 ) {
+    var showGardenInventory by remember { mutableStateOf(false) }
     val isNight = Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).hour !in 6..18
     Column(
         modifier = Modifier
@@ -99,13 +105,37 @@ fun GardenScreen(
                 }
             }
         }
-        SectionTitle("Garden")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            SectionTitle("Garden", Modifier.weight(1f))
+            PixelButton("Garden bag", color = GroveMoss, onClick = { showGardenInventory = true })
+        }
         GardenGrid(gameData = gameData, onTileTapped = onTileTapped)
         SectionTitle("Daily quests")
         QuestList(gameData.dailyQuests.quests)
         SectionTitle("Grove paths")
         GardenActionGrid(onNavigate = onNavigate)
         Spacer(Modifier.height(8.dp))
+    }
+    if (showGardenInventory) {
+        AlertDialog(
+            onDismissRequest = { showGardenInventory = false },
+            title = {
+                Text("Garden inventory", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+            },
+            text = {
+                GardenInventoryPanel(gameData = gameData) { itemId ->
+                    showGardenInventory = false
+                    onSelectGardenItem(itemId)
+                }
+            },
+            confirmButton = {
+                PixelButton("Close", color = GroveBerry) { showGardenInventory = false }
+            }
+        )
     }
 }
 
@@ -117,11 +147,10 @@ private fun GardenActionGrid(onNavigate: (StudyGroveScreen) -> Unit) {
             PixelButton("Shop", color = GroveClay, modifier = Modifier.weight(1f), onClick = { onNavigate(StudyGroveScreen.SHOP) })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            PixelButton("Inventory", color = GroveBerry, modifier = Modifier.weight(1f), onClick = { onNavigate(StudyGroveScreen.INVENTORY) })
             PixelButton("House", color = Color(0xFF5F8FB1), modifier = Modifier.weight(1f), onClick = { onNavigate(StudyGroveScreen.HOUSE) })
+            PixelButton("Profile", color = Color(0xFF7B6BB7), modifier = Modifier.weight(1f), onClick = { onNavigate(StudyGroveScreen.PROFILE) })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            PixelButton("Profile", color = Color(0xFF7B6BB7), modifier = Modifier.weight(1f), onClick = { onNavigate(StudyGroveScreen.PROFILE) })
             PixelButton("Settings", color = Color(0xFF6E695E), modifier = Modifier.weight(1f), onClick = { onNavigate(StudyGroveScreen.SETTINGS) })
         }
     }

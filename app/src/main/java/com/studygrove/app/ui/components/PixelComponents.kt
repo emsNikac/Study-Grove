@@ -213,7 +213,6 @@ fun NavPixelIcon(screen: StudyGroveScreen, selected: Boolean, modifier: Modifier
         val accentAlpha = if (selected) 1f else 0.78f
         val leaf = GroveLeaf.copy(alpha = accentAlpha)
         val clay = GroveClay.copy(alpha = accentAlpha)
-        val berry = GroveBerry.copy(alpha = accentAlpha)
         val moss = GroveMoss.copy(alpha = accentAlpha)
         val cream = if (selected) GroveCream else onSurface.copy(alpha = 0.68f)
         val u = size.minDimension / 8f
@@ -230,10 +229,6 @@ fun NavPixelIcon(screen: StudyGroveScreen, selected: Boolean, modifier: Modifier
                 drawRect(clay, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 3 * u), size = androidx.compose.ui.geometry.Size(4 * u, 4 * u))
                 drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(3 * u, u), size = androidx.compose.ui.geometry.Size(2 * u, 3 * u))
             }
-            StudyGroveScreen.INVENTORY -> {
-                drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 2 * u), size = androidx.compose.ui.geometry.Size(4 * u, 5 * u))
-                drawRect(berry, topLeft = androidx.compose.ui.geometry.Offset(3 * u, u), size = androidx.compose.ui.geometry.Size(2 * u, 2 * u))
-            }
             StudyGroveScreen.HOUSE -> {
                 drawRect(clay, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 3 * u), size = androidx.compose.ui.geometry.Size(4 * u, 4 * u))
                 drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(u, 2 * u), size = androidx.compose.ui.geometry.Size(6 * u, u))
@@ -243,11 +238,28 @@ fun NavPixelIcon(screen: StudyGroveScreen, selected: Boolean, modifier: Modifier
                 drawRect(leaf, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 4 * u), size = androidx.compose.ui.geometry.Size(4 * u, 3 * u))
             }
             StudyGroveScreen.SETTINGS -> {
-                drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 2 * u), size = androidx.compose.ui.geometry.Size(4 * u, 4 * u))
-                drawRect(moss, topLeft = androidx.compose.ui.geometry.Offset(3 * u, 3 * u), size = androidx.compose.ui.geometry.Size(2 * u, 2 * u))
+                drawSettingsGear(ink = ink, accent = moss)
             }
         }
     }
+}
+
+@Composable
+fun SettingsGearIcon(modifier: Modifier = Modifier, color: Color = GroveInk, accent: Color = GroveMoss) {
+    Canvas(modifier.size(28.dp)) {
+        drawSettingsGear(ink = color, accent = accent)
+    }
+}
+
+private fun DrawScope.drawSettingsGear(ink: Color, accent: Color) {
+    val u = size.minDimension / 8f
+    drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(3 * u, u), size = androidx.compose.ui.geometry.Size(2 * u, u))
+    drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(3 * u, 6 * u), size = androidx.compose.ui.geometry.Size(2 * u, u))
+    drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(u, 3 * u), size = androidx.compose.ui.geometry.Size(u, 2 * u))
+    drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(6 * u, 3 * u), size = androidx.compose.ui.geometry.Size(u, 2 * u))
+    drawRect(ink, topLeft = androidx.compose.ui.geometry.Offset(2 * u, 2 * u), size = androidx.compose.ui.geometry.Size(4 * u, 4 * u))
+    drawRect(accent, topLeft = androidx.compose.ui.geometry.Offset(3 * u, 3 * u), size = androidx.compose.ui.geometry.Size(2 * u, 2 * u))
+    drawRect(GroveCream.copy(alpha = 0.9f), topLeft = androidx.compose.ui.geometry.Offset(3.5f * u, 3.5f * u), size = androidx.compose.ui.geometry.Size(u, u))
 }
 
 @Composable

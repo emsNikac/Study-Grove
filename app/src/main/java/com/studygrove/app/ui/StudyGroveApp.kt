@@ -25,7 +25,6 @@ import com.studygrove.app.ui.components.NavPixelIcon
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.garden.GardenScreen
 import com.studygrove.app.ui.house.HouseScreen
-import com.studygrove.app.ui.inventory.InventoryScreen
 import com.studygrove.app.ui.profile.ProfileScreen
 import com.studygrove.app.ui.settings.SettingsScreen
 import com.studygrove.app.ui.shop.ShopScreen
@@ -35,6 +34,14 @@ import com.studygrove.app.ui.theme.StudyGroveTheme
 import com.studygrove.app.ui.timer.StudyTimerScreen
 import java.time.Instant
 import java.time.ZoneId
+
+private val MainNavScreens = listOf(
+    StudyGroveScreen.GARDEN,
+    StudyGroveScreen.TIMER,
+    StudyGroveScreen.SHOP,
+    StudyGroveScreen.HOUSE,
+    StudyGroveScreen.PROFILE
+)
 
 @Composable
 fun StudyGroveApp(viewModel: StudyGroveViewModel) {
@@ -60,7 +67,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    StudyGroveScreen.entries.forEach { destination ->
+                    MainNavScreens.forEach { destination ->
                         NavigationBarItem(
                             selected = screen == destination,
                             onClick = { viewModel.navigate(destination) },
@@ -93,6 +100,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                         selectedItemId = selectedGardenItem,
                         nowMillis = nowMillis,
                         onTileTapped = viewModel::onGardenTileTapped,
+                        onSelectGardenItem = viewModel::selectGardenItem,
                         onClearSelection = viewModel::clearGardenSelection,
                         onNavigate = viewModel::navigate
                     )
@@ -107,12 +115,6 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                         gameData = gameData,
                         onBuyItem = viewModel::buyItem
                     )
-                    StudyGroveScreen.INVENTORY -> InventoryScreen(
-                        gameData = gameData,
-                        onSelectGardenItem = viewModel::selectGardenItem,
-                        onSelectHouseItem = viewModel::selectHouseItem,
-                        onEquipCosmetic = viewModel::equipCosmetic
-                    )
                     StudyGroveScreen.HOUSE -> HouseScreen(
                         gameData = gameData,
                         selectedItemId = selectedHouseItem,
@@ -120,7 +122,11 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                         onSelectFurniture = viewModel::selectHouseItem,
                         onClearSelection = viewModel::clearHouseSelection
                     )
-                    StudyGroveScreen.PROFILE -> ProfileScreen(gameData = gameData)
+                    StudyGroveScreen.PROFILE -> ProfileScreen(
+                        gameData = gameData,
+                        onEquipCosmetic = viewModel::equipCosmetic,
+                        onOpenSettings = { viewModel.navigate(StudyGroveScreen.SETTINGS) }
+                    )
                     StudyGroveScreen.SETTINGS -> SettingsScreen(
                         settings = gameData.settings,
                         onSoundChanged = viewModel::setSoundEnabled,

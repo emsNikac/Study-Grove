@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -32,6 +33,7 @@ import com.studygrove.app.data.model.SettingsState
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.components.PixelPanel
 import com.studygrove.app.ui.components.SectionTitle
+import com.studygrove.app.ui.components.SettingsGearIcon
 import com.studygrove.app.ui.theme.GroveBerry
 import com.studygrove.app.ui.theme.GroveClay
 import com.studygrove.app.ui.theme.GroveCream
@@ -58,7 +60,10 @@ fun SettingsScreen(
         modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SectionTitle("Settings")
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsGearIcon(Modifier.size(30.dp))
+            SectionTitle("Settings")
+        }
         SettingSwitchRow(
             title = "Sound",
             description = "Gentle click and reward tones.",

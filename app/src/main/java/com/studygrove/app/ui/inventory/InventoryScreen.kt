@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,6 +86,40 @@ fun InventoryScreen(
 }
 
 @Composable
+fun GardenInventoryPanel(
+    gameData: GameData,
+    onSelectGardenItem: (String) -> Unit
+) {
+    InventoryList(
+        items = gameData.displayItemsFor(PlacementTarget.GARDEN),
+        emptyText = "Your garden bag is empty. Study, earn coins, and visit the shop for seeds or decorations.",
+        actionText = "Place",
+        onAction = onSelectGardenItem
+    )
+}
+
+@Composable
+fun HouseInventoryPanel(
+    gameData: GameData,
+    onSelectHouseItem: (String) -> Unit
+) {
+    InventoryList(
+        items = gameData.displayItemsFor(PlacementTarget.HOUSE),
+        emptyText = "No furniture yet. A small desk is waiting in the shop once you reach level 2.",
+        actionText = "Place",
+        onAction = onSelectHouseItem
+    )
+}
+
+@Composable
+fun CosmeticInventoryPanel(
+    gameData: GameData,
+    onEquipCosmetic: (String) -> Unit
+) {
+    CosmeticList(gameData = gameData, onEquipCosmetic = onEquipCosmetic)
+}
+
+@Composable
 private fun InventoryList(
     items: List<InventoryDisplayItem>,
     emptyText: String,
@@ -94,7 +129,10 @@ private fun InventoryList(
     if (items.isEmpty()) {
         EmptyState(emptyText)
     } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 430.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             items(items, key = { it.shopItemId }) { inventoryItem ->
                 val shopItem = ShopCatalog.byId(inventoryItem.shopItemId)
                 PixelPanel(color = Color(0xFFFFF0CE)) {
@@ -128,7 +166,10 @@ private fun CosmeticList(gameData: GameData, onEquipCosmetic: (String) -> Unit) 
     if (cosmetics.isEmpty()) {
         EmptyState("No cosmetics owned yet. Unlock shirts, hats, and backpacks through study progress.")
     } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 430.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             items(cosmetics, key = { it.id }) { item ->
                 PixelPanel(color = Color(0xFFFFF0CE)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
