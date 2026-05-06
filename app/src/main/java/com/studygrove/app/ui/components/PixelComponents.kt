@@ -1976,9 +1976,38 @@ private fun DrawScope.drawDecorationIdentityDetail(key: String, itemId: String, 
             if (key.contains("golden")) drawRect(Color.White.copy(alpha = 0.7f), topLeft = Offset(6.8f * u, 3.25f * u), size = Size(0.45f * u, 0.45f * u))
         }
         key.contains("house_room") || key.contains("dream_library_wing") -> {
-            val rooms = if (key.contains("_4") || key.contains("dream")) 4 else if (key.contains("_3")) 3 else 2
-            repeat(rooms) { index ->
-                drawRect(if (index % 2 == 0) GroveCream else Color(0xFFFFE08A), topLeft = Offset((2.8f + index % 2 * 1.8f) * u, (3.0f + index / 2 * 1.4f) * u), size = Size(1.4f * u, 1.0f * u))
+            when {
+                key.contains("house_room_2") -> {
+                    drawRect(Color(0xFF8D5A35), topLeft = Offset(2.45f * u, 2.8f * u), size = Size(5.3f * u, 4.1f * u))
+                    repeat(4) { index ->
+                        drawRect(PixelItemPalette[(index + 2) % PixelItemPalette.size], topLeft = Offset((3.0f + index * 0.95f) * u, 3.35f * u), size = Size(0.55f * u, 2.2f * u))
+                    }
+                    drawRect(Color(0xFFFFF2D1), topLeft = Offset(4.1f * u, 6.15f * u), size = Size(1.9f * u, 0.35f * u))
+                }
+                key.contains("house_room_3") -> {
+                    drawRect(Color(0xFF7A4D31), topLeft = Offset(2.2f * u, 3.2f * u), size = Size(5.9f * u, 3.8f * u))
+                    drawRect(Color(0xFF4A3B30), topLeft = Offset(2.8f * u, 2.15f * u), size = Size(4.7f * u, 1.1f * u))
+                    repeat(4) { index ->
+                        drawRect(Color(0xFFE8B27A).lit(index * 0.03f), topLeft = Offset((3.0f + index * 1.0f) * u, (4.0f + index * 0.55f) * u), size = Size((3.9f - index * 0.55f) * u, 0.35f * u))
+                    }
+                }
+                key.contains("house_room_4") -> {
+                    drawRect(Color(0xFFBDE7E7), topLeft = Offset(2.1f * u, 3.0f * u), size = Size(5.7f * u, 3.6f * u))
+                    drawRect(Color(0xFF6C8F89), topLeft = Offset(2.0f * u, 6.2f * u), size = Size(6.0f * u, 0.55f * u))
+                    repeat(4) { index ->
+                        drawRect(Color(0xFF6C8F89), topLeft = Offset((2.55f + index * 1.35f) * u, 4.6f * u), size = Size(0.35f * u, 1.8f * u))
+                    }
+                    drawRect(Color(0xFFFFD96A), topLeft = Offset(5.8f * u, 2.3f * u), size = Size(1.0f * u, 1.0f * u))
+                }
+                else -> {
+                    repeat(4) { index ->
+                        val color = if (index % 2 == 0) GroveCream else Color(0xFFFFE08A)
+                        drawRect(color, topLeft = Offset((2.8f + index % 2 * 1.8f) * u, (3.0f + index / 2 * 1.4f) * u), size = Size(1.4f * u, 1.0f * u))
+                    }
+                    repeat(3) { index ->
+                        drawRect(PixelItemPalette[(index + 4) % PixelItemPalette.size], topLeft = Offset((3.1f + index * 1.0f) * u, 5.8f * u), size = Size(0.55f * u, 0.9f * u))
+                    }
+                }
             }
         }
         key.contains("study_desk_bonus") -> {

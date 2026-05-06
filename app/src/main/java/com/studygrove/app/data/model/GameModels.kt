@@ -92,14 +92,19 @@ data class HouseObject(
     val x: Int,
     val y: Int,
     val type: HouseObjectType,
+    val room: HouseRoom = HouseRoom.MAIN,
     val placedAtEpochMillis: Long = 0L
 )
 
 @Serializable
 data class HouseState(
     val level: Int = 1,
-    val width: Int = 6,
-    val height: Int = 5,
+    val width: Int = 12,
+    val height: Int = 7,
+    val currentRoom: HouseRoom = HouseRoom.MAIN,
+    val unlockedRooms: List<HouseRoom> = HouseRooms.defaultUnlockedRooms,
+    val specialUnlocks: List<String> = emptyList(),
+    val unlockedThemes: List<String> = emptyList(),
     val objects: List<HouseObject> = emptyList()
 ) {
     val title: String
@@ -113,6 +118,223 @@ data class HouseState(
             7 -> "Tower study"
             else -> "Grand scholar estate"
         }
+
+    fun comfortScore(room: HouseRoom): Int =
+        objects.count { it.room == room } * 5 + if (room in unlockedRooms) 10 else 0
+}
+
+data class RoomSize(
+    val columns: Int,
+    val rows: Int
+)
+
+data class HouseRoomSpec(
+    val room: HouseRoom,
+    val width: Int,
+    val height: Int
+)
+
+data class HouseTransition(
+    val x: Int,
+    val y: Int,
+    val target: HouseRoom,
+    val label: String,
+    val kind: HousePortalKind
+)
+
+data class HouseLayoutCell(
+    val x: Int,
+    val y: Int,
+    val kind: HouseLayoutCellKind,
+    val label: String
+)
+
+object HouseRooms {
+    val defaultUnlockedRooms = listOf(HouseRoom.MAIN)
+    val lateGameRooms = listOf(HouseRoom.LIBRARY, HouseRoom.ATTIC, HouseRoom.BALCONY)
+
+    fun spec(room: HouseRoom): HouseRoomSpec {
+        val size = HouseRoomSizes.getSize(room)
+        return HouseRoomSpec(room = room, width = size.columns, height = size.rows)
+    }
+
+    // Kept for old call sites; house level no longer affects room dimensions.
+    fun spec(room: HouseRoom, level: Int): HouseRoomSpec {
+        return spec(room)
+    }
+
+    fun spec(house: HouseState): HouseRoomSpec = spec(house.currentRoom)
+
+    fun transitions(house: HouseState): List<HouseTransition> =
+        transitions(house.level, house.currentRoom)
+
+    fun transitions(level: Int, room: HouseRoom): List<HouseTransition> =
+        when (room) {
+            HouseRoom.MAIN -> listOf(
+                HouseTransition(3, 6, HouseRoom.MAIN, "Outside Door", HousePortalKind.DOOR),
+                HouseTransition(0, 3, HouseRoom.BEDROOM, "Bedroom", HousePortalKind.DOOR),
+                HouseTransition(11, 5, HouseRoom.KITCHEN, "Kitchen", HousePortalKind.DOOR),
+                HouseTransition(11, 1, HouseRoom.STUDY, "Study Room", HousePortalKind.DOOR),
+                HouseTransition(2, 0, HouseRoom.LIBRARY, "Library", HousePortalKind.STAIRS_UP)
+            )
+            HouseRoom.BEDROOM -> listOf(
+                HouseTransition(4, 5, HouseRoom.MAIN, "Main Room", HousePortalKind.DOOR)
+            )
+            HouseRoom.STUDY -> listOf(
+                HouseTransition(4, 5, HouseRoom.MAIN, "Main Room", HousePortalKind.DOOR)
+            )
+            HouseRoom.KITCHEN -> listOf(
+                HouseTransition(4, 5, HouseRoom.MAIN, "Main Room", HousePortalKind.DOOR)
+            )
+            HouseRoom.LIBRARY -> listOf(
+                HouseTransition(5, 6, HouseRoom.MAIN, "Main Room", HousePortalKind.STAIRS_DOWN),
+                HouseTransition(8, 0, HouseRoom.ATTIC, "Attic", HousePortalKind.STAIRS_UP)
+            )
+            HouseRoom.ATTIC -> listOf(
+                HouseTransition(1, 4, HouseRoom.LIBRARY, "Library", HousePortalKind.STAIRS_DOWN),
+                HouseTransition(8, 1, HouseRoom.BALCONY, "Balcony", HousePortalKind.BALCONY_DOOR),
+                HouseTransition(8, 2, HouseRoom.BALCONY, "Balcony", HousePortalKind.BALCONY_DOOR)
+            )
+            HouseRoom.BALCONY -> listOf(
+                HouseTransition(0, 1, HouseRoom.ATTIC, "Attic", HousePortalKind.BALCONY_DOOR),
+                HouseTransition(0, 2, HouseRoom.ATTIC, "Attic", HousePortalKind.BALCONY_DOOR)
+            )
+        }
+
+    fun transitionAt(house: HouseState, x: Int, y: Int): HouseTransition? =
+        transitions(house).firstOrNull { it.x == x && it.y == y }
+
+    fun transitionAt(level: Int, room: HouseRoom, x: Int, y: Int): HouseTransition? =
+        transitions(level, room).firstOrNull { it.x == x && it.y == y }
+
+    fun layoutCells(house: HouseState): List<HouseLayoutCell> =
+        layoutCells(house.level, house.currentRoom)
+
+    fun layoutCells(level: Int, room: HouseRoom): List<HouseLayoutCell> {
+        val spec = spec(room, level)
+        val cells = mutableListOf<HouseLayoutCell>()
+
+        fun add(x: Int, y: Int, kind: HouseLayoutCellKind, label: String) {
+            val inBounds = x in 0 until spec.width && y in 0 until spec.height
+            val isPortal = transitionAt(level, room, x, y) != null
+            if (inBounds && !isPortal) {
+                cells += HouseLayoutCell(x = x, y = y, kind = kind, label = label)
+            }
+        }
+
+        fun addAll(
+            coordinates: List<Pair<Int, Int>>,
+            kind: HouseLayoutCellKind,
+            label: String
+        ) {
+            coordinates.forEach { (x, y) -> add(x, y, kind, label) }
+        }
+
+        when (room) {
+            HouseRoom.MAIN -> {
+                addAll(
+                    listOf(11 to 3, 10 to 3, 9 to 3, 8 to 3, 7 to 3, 6 to 3, 6 to 2, 6 to 4, 6 to 5),
+                    HouseLayoutCellKind.WALL,
+                    "gray wall"
+                )
+            }
+            HouseRoom.BEDROOM -> {
+                addAll(
+                    listOf(3 to 0, 3 to 1, 3 to 2, 3 to 3),
+                    HouseLayoutCellKind.WALL,
+                    "gray wall"
+                )
+            }
+            HouseRoom.STUDY -> {
+                addAll(
+                    listOf(1 to 1, 2 to 1),
+                    HouseLayoutCellKind.COUNTER,
+                    "desk counter"
+                )
+            }
+            HouseRoom.KITCHEN -> {
+                addAll(
+                    listOf(0 to 0, 1 to 0, 2 to 0, 3 to 0, 3 to 1),
+                    HouseLayoutCellKind.COUNTER,
+                    "prep counter"
+                )
+            }
+            HouseRoom.LIBRARY -> {
+                add(5, 0, HouseLayoutCellKind.WINDOW, "window")
+            }
+            HouseRoom.ATTIC -> {
+                addAll(
+                    listOf(1 to 0, 2 to 0),
+                    HouseLayoutCellKind.WARDROBE,
+                    "storage trunk"
+                )
+                addAll(
+                    listOf(8 to 4, 8 to 3, 7 to 4, 7 to 3),
+                    HouseLayoutCellKind.WALL,
+                    "wooden wall"
+                )
+            }
+            HouseRoom.BALCONY -> {
+                addAll(
+                    listOf(5 to 0, 5 to 1),
+                    HouseLayoutCellKind.RAILING,
+                    "inner balcony rail"
+                )
+            }
+        }
+
+        return cells.distinctBy { it.x to it.y }
+    }
+
+    fun layoutCellAt(house: HouseState, x: Int, y: Int): HouseLayoutCell? =
+        layoutCells(house).firstOrNull { it.x == x && it.y == y }
+
+    fun layoutCellAt(level: Int, room: HouseRoom, x: Int, y: Int): HouseLayoutCell? =
+        layoutCells(level, room).firstOrNull { it.x == x && it.y == y }
+}
+
+object HouseRoomSizes {
+    fun getSize(room: HouseRoom): RoomSize =
+        when (room) {
+            HouseRoom.MAIN -> RoomSize(columns = 12, rows = 7)
+            HouseRoom.BEDROOM -> RoomSize(columns = 9, rows = 6)
+            HouseRoom.STUDY -> RoomSize(columns = 9, rows = 6)
+            HouseRoom.KITCHEN -> RoomSize(columns = 9, rows = 6)
+            HouseRoom.LIBRARY -> RoomSize(columns = 11, rows = 7)
+            HouseRoom.ATTIC -> RoomSize(columns = 9, rows = 5)
+            HouseRoom.BALCONY -> RoomSize(columns = 9, rows = 4)
+        }
+}
+
+object HouseSpecialUnlocks {
+    const val UnlockAllRooms = "unlock_all_rooms"
+    const val DreamLibraryTheme = "dream_library_theme"
+    const val CelestialTheme = "celestial_theme"
+    const val GrandEstateTheme = "grand_estate_theme"
+}
+
+object HouseRoomUnlocks {
+    fun getUnlockedRooms(houseLevel: Int, specialUnlocks: Set<String> = emptySet()): List<HouseRoom> {
+        if (HouseSpecialUnlocks.UnlockAllRooms in specialUnlocks) {
+            return HouseRoom.entries.toList()
+        }
+
+        val safeLevel = houseLevel.coerceIn(1, 8)
+        val rooms = mutableListOf(HouseRoom.MAIN)
+        if (safeLevel >= 2) rooms += HouseRoom.BEDROOM
+        if (safeLevel >= 3) rooms += HouseRoom.STUDY
+        if (safeLevel >= 4) rooms += HouseRoom.KITCHEN
+        if (safeLevel >= 5) rooms += HouseRoom.LIBRARY
+        if (safeLevel >= 6) rooms += HouseRoom.ATTIC
+        if (safeLevel >= 7) rooms += HouseRoom.BALCONY
+        return rooms.distinct()
+    }
+
+    fun isRoomUnlocked(
+        room: HouseRoom,
+        houseLevel: Int,
+        specialUnlocks: Set<String> = emptySet()
+    ): Boolean = room in getUnlockedRooms(houseLevel, specialUnlocks)
 }
 
 @Serializable

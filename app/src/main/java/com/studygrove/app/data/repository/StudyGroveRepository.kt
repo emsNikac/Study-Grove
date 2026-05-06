@@ -9,6 +9,8 @@ import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
 import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.HouseObject
+import com.studygrove.app.data.model.HouseRooms
+import com.studygrove.app.data.model.HouseSpecialUnlocks
 import com.studygrove.app.data.model.InventoryItem
 import com.studygrove.app.data.model.PlacementResult
 import com.studygrove.app.data.model.PlacementTarget
@@ -348,10 +350,22 @@ class StudyGroveRepository(
         var result = PlacementResult(false, "Could not place ${item.name}.")
         localDataSource.update { data ->
             val hasItem = data.settings.testModeEnabled || data.inventory.any { it.shopItemId == item.id && it.quantity > 0 }
-            val occupied = data.house.objects.any { it.x == x && it.y == y }
+            val currentRoom = data.house.currentRoom
+            val roomSpec = HouseRooms.spec(currentRoom)
+            val portal = HouseRooms.transitionAt(data.house, x, y)
+            val layoutCell = HouseRooms.layoutCellAt(data.house, x, y)
+            val occupied = data.house.objects.any { it.room == currentRoom && it.x == x && it.y == y }
             when {
-                x !in 0 until data.house.width || y !in 0 until data.house.height -> {
+                x !in 0 until roomSpec.width || y !in 0 until roomSpec.height -> {
                     result = PlacementResult(false, "That spot is outside the room.")
+                    data
+                }
+                portal != null -> {
+                    result = PlacementResult(false, "That ${portal.label.lowercase()} path needs to stay open.")
+                    data
+                }
+                layoutCell != null -> {
+                    result = PlacementResult(false, "The built-in ${layoutCell.label} helps shape this room.")
                     data
                 }
                 occupied -> {
@@ -369,6 +383,7 @@ class StudyGroveRepository(
                         x = x,
                         y = y,
                         type = item.houseObjectType,
+                        room = currentRoom,
                         placedAtEpochMillis = nowMillis
                     )
                     result = PlacementResult(true, "Placed ${item.name}.")
@@ -385,16 +400,47 @@ class StudyGroveRepository(
     suspend fun interactHouseTile(x: Int, y: Int, nowMillis: Long = System.currentTimeMillis()): PlacementResult {
         var result = PlacementResult(false, "That room tile is empty.")
         localDataSource.update { data ->
-            val houseObject = data.house.objects.firstOrNull { it.x == x && it.y == y } ?: return@update data
-            val item = ShopCatalog.byId(houseObject.shopItemId) ?: return@update data
-            result = PlacementResult(
-                true,
-                if (data.settings.testModeEnabled) "Removed ${item.name}." else "Moved ${item.name} back to inventory."
-            )
-            data.copy(
-                inventory = if (data.settings.testModeEnabled) data.inventory else data.inventory.add(item.id, nowMillis),
-                house = data.house.copy(objects = data.house.objects.filterNot { it.id == houseObject.id })
-            )
+            val currentRoom = data.house.currentRoom
+            val houseObject = data.house.objects.firstOrNull { it.room == currentRoom && it.x == x && it.y == y }
+            if (houseObject == null) {
+                val portal = HouseRooms.transitionAt(data.house, x, y)
+                when {
+                    portal == null -> {
+                        val layoutCell = HouseRooms.layoutCellAt(data.house, x, y) ?: return@update data
+                        result = PlacementResult(true, "That built-in ${layoutCell.label} stays in place.")
+                        data
+                    }
+                    portal.target == currentRoom -> {
+                        result = PlacementResult(true, "The ${portal.label.lowercase()} stays open.")
+                        data
+                    }
+                    portal.target !in data.house.unlockedRooms -> {
+                        result = PlacementResult(false, "${portal.target.displayName} is locked. Raise your house level to unlock it.")
+                        data
+                    }
+                    else -> {
+                        val targetSpec = HouseRooms.spec(portal.target)
+                        result = PlacementResult(true, "Entered ${portal.target.displayName}.")
+                        data.copy(
+                            house = data.house.copy(
+                                currentRoom = portal.target,
+                                width = targetSpec.width,
+                                height = targetSpec.height
+                            )
+                        )
+                    }
+                }
+            } else {
+                val item = ShopCatalog.byId(houseObject.shopItemId) ?: return@update data
+                result = PlacementResult(
+                    true,
+                    if (data.settings.testModeEnabled) "Removed ${item.name}." else "Moved ${item.name} back to inventory."
+                )
+                data.copy(
+                    inventory = if (data.settings.testModeEnabled) data.inventory else data.inventory.add(item.id, nowMillis),
+                    house = data.house.copy(objects = data.house.objects.filterNot { it.id == houseObject.id })
+                )
+            }
         }
         return result
     }
@@ -484,11 +530,16 @@ class StudyGroveRepository(
         item.upgradeKind == UpgradeKind.HOUSE_LEVEL_3 -> data.withHouseLevel(3)
         item.upgradeKind == UpgradeKind.HOUSE_LEVEL_4 -> data.withHouseLevel(4)
         item.upgradeKind == UpgradeKind.HOUSE_LEVEL_5 -> data.withHouseLevel(5)
-        item.id == "upgrade_house_6" || item.id == "upgrade_house_room_2" -> data.withHouseLevel(6)
-        item.id == "upgrade_house_7" || item.id == "upgrade_house_room_3" -> data.withHouseLevel(7)
-        item.id == "upgrade_house_room_4" ||
-            item.id == "upgrade_dream_library_wing" ||
-            item.id == "upgrade_grand_scholar_estate" -> data.withHouseLevel(8)
+        item.id == "upgrade_house_6" -> data.withHouseLevel(6)
+        item.id == "upgrade_house_7" -> data.withHouseLevel(7)
+        item.id == "upgrade_dream_library_wing" -> data
+            .withHouseLevel(8)
+            .withHouseSpecialUnlocks(HouseSpecialUnlocks.UnlockAllRooms, HouseSpecialUnlocks.DreamLibraryTheme)
+            .withHouseThemes(HouseSpecialUnlocks.DreamLibraryTheme)
+        item.id == "upgrade_grand_scholar_estate" -> data
+            .withHouseLevel(8)
+            .withHouseSpecialUnlocks(HouseSpecialUnlocks.UnlockAllRooms, HouseSpecialUnlocks.GrandEstateTheme)
+            .withHouseThemes(HouseSpecialUnlocks.GrandEstateTheme)
 
         item.id == "upgrade_crop_watering_bonus" -> data.withUpgradeBonuses(growthReduction = 1, harvestPercent = 2)
         item.id == "upgrade_crop_harvest_bonus_1" -> data.withUpgradeBonuses(harvestPercent = 5)
@@ -533,7 +584,11 @@ class StudyGroveRepository(
             item.id == "upgrade_garden_capacity_1" -> data.withUpgradeBonuses(focusPercent = 1)
 
         item.id == "upgrade_scholar_statue_plaza" -> data.withUpgradeBonuses(questCoins = 5, visualTheme = "plaza")
-        item.id == "upgrade_celestial_observatory" -> data.withHouseLevel(8).withUpgradeBonuses(focusPercent = 4, visualTheme = "observatory")
+        item.id == "upgrade_celestial_observatory" -> data
+            .withHouseLevel(8)
+            .withHouseSpecialUnlocks(HouseSpecialUnlocks.UnlockAllRooms, HouseSpecialUnlocks.CelestialTheme)
+            .withHouseThemes(HouseSpecialUnlocks.CelestialTheme)
+            .withUpgradeBonuses(focusPercent = 4, visualTheme = "observatory")
         else -> data.withUpgradeBonuses(focusPercent = 1)
     }
 
@@ -542,6 +597,12 @@ class StudyGroveRepository(
 
     private fun GameData.withHouseLevel(level: Int): GameData =
         copy(house = house.copy(level = maxOf(house.level, level)))
+
+    private fun GameData.withHouseSpecialUnlocks(vararg unlocks: String): GameData =
+        copy(house = house.copy(specialUnlocks = (house.specialUnlocks + unlocks).distinct()))
+
+    private fun GameData.withHouseThemes(vararg themes: String): GameData =
+        copy(house = house.copy(unlockedThemes = (house.unlockedThemes + themes).distinct()))
 
     private fun GameData.withUpgradeBonuses(
         focusPercent: Int = 0,

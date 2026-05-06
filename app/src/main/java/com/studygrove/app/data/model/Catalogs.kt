@@ -307,7 +307,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_house_2",
             name = "House Upgrade 1",
-            description = "Upgrades the tiny cottage into a cozy cottage.",
+            description = "Adds a cozy bedroom to your cottage.",
             category = ShopCategory.UPGRADES,
             price = 500,
             unlockLevel = 4,
@@ -319,7 +319,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_house_3",
             name = "House Upgrade 2",
-            description = "Builds a study cabin with more room for furniture.",
+            description = "Adds a focused study room for deeper learning.",
             category = ShopCategory.UPGRADES,
             price = 1_200,
             unlockLevel = 8,
@@ -331,7 +331,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_house_4",
             name = "House Upgrade 3",
-            description = "Turns your cabin into a scholar's home.",
+            description = "Adds a warm kitchen for food, tea, and comfort.",
             category = ShopCategory.UPGRADES,
             price = 2_400,
             unlockLevel = 12,
@@ -343,7 +343,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_house_5",
             name = "House Upgrade 4",
-            description = "Creates the dream library house.",
+            description = "Adds a peaceful library room for books and reading.",
             category = ShopCategory.UPGRADES,
             price = 4_000,
             unlockLevel = 20,
@@ -3321,7 +3321,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_house_6",
             name = "House Upgrade 5",
-            description = "Adds a cozy upstairs reading loft.",
+            description = "Adds an attic for storage, memories, and hidden treasures.",
             category = ShopCategory.UPGRADES,
             price = 6000,
             unlockLevel = 24,
@@ -3416,17 +3416,6 @@ object ShopCatalog {
             unlockLevel = 10,
             placementTarget = PlacementTarget.UPGRADE,
             visualKey = "cozy_lighting_pack",
-            maxPurchases = 1
-        ),
-        ShopItem(
-            id = "upgrade_house_room_2",
-            name = "House Room Expansion 1",
-            description = "Expands the house into a level 6 reading loft.",
-            category = ShopCategory.UPGRADES,
-            price = 1400,
-            unlockLevel = 10,
-            placementTarget = PlacementTarget.UPGRADE,
-            visualKey = "house_room_2",
             maxPurchases = 1
         ),
         ShopItem(
@@ -3530,17 +3519,6 @@ object ShopCatalog {
             maxPurchases = 1
         ),
         ShopItem(
-            id = "upgrade_house_room_3",
-            name = "House Room Expansion 2",
-            description = "Expands the house into a level 7 library tower.",
-            category = ShopCategory.UPGRADES,
-            price = 3200,
-            unlockLevel = 15,
-            placementTarget = PlacementTarget.UPGRADE,
-            visualKey = "house_room_3",
-            maxPurchases = 1
-        ),
-        ShopItem(
             id = "upgrade_study_desk_bonus",
             name = "Study Desk Bonus",
             description = "Adds a focused desk bonus worth 4% more study coins.",
@@ -3609,7 +3587,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_house_7",
             name = "House Upgrade 6",
-            description = "Expands the house into a level 7 tower study.",
+            description = "Adds a balcony for fresh air and outdoor relaxation.",
             category = ShopCategory.UPGRADES,
             price = 8000,
             unlockLevel = 28,
@@ -3674,17 +3652,6 @@ object ShopCatalog {
             maxPurchases = 1
         ),
         ShopItem(
-            id = "upgrade_house_room_4",
-            name = "House Room Expansion 3",
-            description = "Expands the house into a level 8 observatory room.",
-            category = ShopCategory.UPGRADES,
-            price = 8500,
-            unlockLevel = 24,
-            placementTarget = PlacementTarget.UPGRADE,
-            visualKey = "house_room_4",
-            maxPurchases = 1
-        ),
-        ShopItem(
             id = "upgrade_advanced_daily_quests",
             name = "Advanced Daily Quests",
             description = "Improves completed daily quest rewards by 8 coins.",
@@ -3743,7 +3710,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_dream_library_wing",
             name = "Dream Library Wing",
-            description = "Expands the house into the level 8 grand library wing.",
+            description = "Transforms your home with a grand library theme and unlocks all rooms.",
             category = ShopCategory.UPGRADES,
             price = 17500,
             unlockLevel = 32,
@@ -3754,7 +3721,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_celestial_observatory",
             name = "Celestial Observatory",
-            description = "Adds the level 8 observatory and a 4% study coin bonus.",
+            description = "Adds celestial details and unlocks the full late-game house path.",
             category = ShopCategory.UPGRADES,
             price = 20000,
             unlockLevel = 34,
@@ -3787,7 +3754,7 @@ object ShopCatalog {
         ShopItem(
             id = "upgrade_grand_scholar_estate",
             name = "Grand Scholar Estate",
-            description = "Final house evolution: level 8 grand scholar estate.",
+            description = "Completes your home as a grand scholar estate and unlocks all rooms.",
             category = ShopCategory.UPGRADES,
             price = 40000,
             unlockLevel = 40,

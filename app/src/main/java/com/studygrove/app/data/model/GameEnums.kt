@@ -42,6 +42,36 @@ enum class HouseObjectType {
 }
 
 @Serializable
+enum class HouseRoom(val displayName: String) {
+    MAIN("Main Room"),
+    BEDROOM("Bedroom"),
+    STUDY("Study Room"),
+    KITCHEN("Kitchen"),
+    LIBRARY("Library"),
+    ATTIC("Attic"),
+    BALCONY("Balcony")
+}
+
+enum class HousePortalKind {
+    DOOR,
+    STAIRS_UP,
+    STAIRS_DOWN,
+    BALCONY_DOOR
+}
+
+enum class HouseLayoutCellKind {
+    WALL,
+    WINDOW,
+    SHELF,
+    COUNTER,
+    HEARTH,
+    WARDROBE,
+    ROOF_BEAM,
+    RAILING,
+    PLANTER
+}
+
+@Serializable
 enum class TimerPreset(val label: String, val minutes: Int?) {
     QUICK_STUDY("Quick Study", 15),
     FOCUS_SESSION("Focus Session", 25),
