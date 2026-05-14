@@ -7,6 +7,7 @@ import com.studygrove.app.data.model.CharacterCustomization
 import com.studygrove.app.data.model.CosmeticSlot
 import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
+import com.studygrove.app.data.model.GardenObjectFootprints
 import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.HouseObject
 import com.studygrove.app.data.model.HouseRooms
@@ -245,14 +246,29 @@ class StudyGroveRepository(
         var result = PlacementResult(false, "Could not place ${item.name}.")
         localDataSource.update { data ->
             val hasItem = data.settings.testModeEnabled || data.inventory.any { it.shopItemId == item.id && it.quantity > 0 }
-            val occupied = data.garden.objects.any { it.x == x && it.y == y }
+            val footprint = GardenObjectFootprints.sizeFor(item)
+            val targetTiles = GardenObjectFootprints.occupiedTiles(x, y, footprint)
+            val outOfBounds = targetTiles.any { (tileX, tileY) ->
+                tileX !in 0 until data.garden.width || tileY !in 0 until data.garden.height
+            }
+            val occupied = data.garden.objects.any { existing ->
+                val existingItem = ShopCatalog.byId(existing.shopItemId)
+                GardenObjectFootprints.occupiedTiles(existing, existingItem).any { it in targetTiles }
+            }
             when {
-                x !in 0 until data.garden.width || y !in 0 until data.garden.height -> {
-                    result = PlacementResult(false, "That tile is outside your grove.")
+                outOfBounds -> {
+                    result = PlacementResult(
+                        false,
+                        if (footprint.width > 1 || footprint.height > 1) {
+                            "${item.name} needs a clear ${footprint.width}x${footprint.height} space inside your grove."
+                        } else {
+                            "That tile is outside your grove."
+                        }
+                    )
                     data
                 }
                 occupied -> {
-                    result = PlacementResult(false, "That tile already has something cozy on it.")
+                    result = PlacementResult(false, "That space already has something cozy on it.")
                     data
                 }
                 !hasItem -> {
@@ -312,7 +328,9 @@ class StudyGroveRepository(
     ): PlacementResult {
         var result = PlacementResult(false, "Nothing to pick up here.")
         localDataSource.update { data ->
-            val gardenObject = data.garden.objects.firstOrNull { it.x == x && it.y == y } ?: return@update data
+            val gardenObject = data.garden.objects.firstOrNull { existing ->
+                GardenObjectFootprints.containsTile(existing, ShopCatalog.byId(existing.shopItemId), x, y)
+            } ?: return@update data
             val item = ShopCatalog.byId(gardenObject.shopItemId) ?: return@update data
             val remainingObjects = data.garden.objects.filterNot { it.id == gardenObject.id }
             if (gardenObject.type == GardenObjectType.CROP && gardenObject.sessionsRemaining == 0) {

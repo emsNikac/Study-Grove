@@ -111,9 +111,20 @@ fun GardenState.normalized(): GardenState {
     val safeWidth = width.coerceIn(8, 30)
     val safeHeight = height.coerceIn(8, 30)
     val knownItems = ShopCatalog.placeableGardenItems()
-    val safeObjects = objects
-        .filter { it.x in 0 until safeWidth && it.y in 0 until safeHeight && it.shopItemId in knownItems }
-        .distinctBy { it.x to it.y }
+    val occupiedTiles = mutableSetOf<Pair<Int, Int>>()
+    val safeObjects = objects.mapNotNull { gardenObject ->
+        val item = ShopCatalog.byId(gardenObject.shopItemId)
+        val objectTiles = GardenObjectFootprints.occupiedTiles(gardenObject, item)
+        val isValid = gardenObject.shopItemId in knownItems &&
+            objectTiles.all { (x, y) -> x in 0 until safeWidth && y in 0 until safeHeight } &&
+            objectTiles.none { it in occupiedTiles }
+        if (isValid) {
+            occupiedTiles += objectTiles
+            gardenObject
+        } else {
+            null
+        }
+    }
     return copy(
         width = safeWidth,
         height = safeHeight,

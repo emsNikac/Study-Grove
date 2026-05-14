@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -36,14 +37,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
+import com.studygrove.app.data.model.GardenObjectFootprints
 import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.ui.StudyGroveScreen
@@ -65,6 +70,7 @@ import com.studygrove.app.ui.theme.GroveNight
 import com.studygrove.app.ui.theme.GroveSky
 import java.time.Instant
 import java.time.ZoneId
+import kotlin.math.roundToInt
 
 @Composable
 fun GardenScreen(
@@ -283,7 +289,27 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: Stri
 private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
     val haptic = LocalHapticFeedback.current
     val objectsByTile = remember(gameData.garden.objects) {
-        gameData.garden.objects.associateBy { it.x to it.y }
+        buildMap {
+            gameData.garden.objects.forEach { gardenObject ->
+                val item = ShopCatalog.byId(gardenObject.shopItemId)
+                GardenObjectFootprints.occupiedTiles(gardenObject, item).forEach { tile ->
+                    if (tile !in this) put(tile, gardenObject)
+                }
+            }
+        }
+    }
+    val animatedGarden = rememberInfiniteTransition(label = "garden_objects")
+    val animationPhase by animatedGarden.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Restart),
+        label = "garden_object_phase"
+    )
+    val overlayObjects = remember(gameData.garden.objects) {
+        gameData.garden.objects.filter { gardenObject ->
+            val item = ShopCatalog.byId(gardenObject.shopItemId)
+            GardenObjectFootprints.isLarge(item)
+        }
     }
     ZoomableMapViewport(
         gridWidth = gameData.garden.width,
@@ -308,6 +334,7 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
                                     down = objectsByTile[x to (y + 1)]?.type == GardenObjectType.FENCE
                                 ),
                                 clover = (x + y) % 5 == 0,
+                                animationPhase = animationPhase,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onTileTapped(x, y)
@@ -316,6 +343,30 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
                         }
                     }
                 }
+            }
+            overlayObjects.forEach { gardenObject ->
+                val item = ShopCatalog.byId(gardenObject.shopItemId)
+                val footprint = GardenObjectFootprints.sizeFor(item)
+                GardenObjectLayer(
+                    gardenObject = gardenObject,
+                    animationPhase = animationPhase,
+                    modifier = Modifier
+                        .size(
+                            width = tileSize * footprint.width.toFloat(),
+                            height = tileSize * footprint.height.toFloat()
+                        )
+                        .offset {
+                            IntOffset(
+                                x = (gardenObject.x * tileSize.toPx()).roundToInt(),
+                                y = (gardenObject.y * tileSize.toPx()).roundToInt()
+                            )
+                        }
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onTileTapped(gardenObject.x, gardenObject.y)
+                        }
+                        .padding(2.dp)
+                )
             }
         }
     }
@@ -327,13 +378,17 @@ private fun GardenTileBox(
     objectOnTile: GardenObject?,
     fenceConnections: FenceConnections,
     clover: Boolean,
+    animationPhase: Float,
     onClick: () -> Unit
 ) {
     val base = if (clover) Color(0xFF8DC76A) else Color(0xFF7EB95A)
     val item = objectOnTile?.let { ShopCatalog.byId(it.shopItemId) }
     val objectType = objectOnTile?.type
+    val visualKey = item?.visualKey.orEmpty()
+    val isLargeObject = GardenObjectFootprints.isLarge(item)
+    val usesSpriteOnSurface = objectType == GardenObjectType.WATER && visualKey.contains("waterfall")
     val isSurfaceObject = objectType == GardenObjectType.PATH ||
-        objectType == GardenObjectType.WATER ||
+        (objectType == GardenObjectType.WATER && !usesSpriteOnSurface) ||
         objectType == GardenObjectType.FENCE
     Box(
         modifier = modifier
@@ -344,9 +399,9 @@ private fun GardenTileBox(
     ) {
         Canvas(Modifier.matchParentSize()) {
             when (objectType) {
-                GardenObjectType.PATH -> drawGardenPathTile(item?.visualKey.orEmpty())
-                GardenObjectType.WATER -> drawGardenPondTile()
-                GardenObjectType.FENCE -> drawGardenFenceTile(item?.visualKey.orEmpty(), fenceConnections)
+                GardenObjectType.PATH -> drawGardenPathTile(visualKey)
+                GardenObjectType.WATER -> if (!isLargeObject && !usesSpriteOnSurface) drawGardenPondTile()
+                GardenObjectType.FENCE -> drawGardenFenceTile(visualKey, fenceConnections)
                 else -> if (clover && objectOnTile == null) {
                     val u = size.minDimension / 10f
                     drawRect(GroveLeaf.copy(alpha = 0.55f), topLeft = Offset(4.5f * u, 2.4f * u), size = Size(u, 5.2f * u))
@@ -354,10 +409,103 @@ private fun GardenTileBox(
                 }
             }
         }
-        if (!isSurfaceObject) {
+        if (!isSurfaceObject && !isLargeObject) {
             objectOnTile?.let {
-                GardenObjectSprite(it, Modifier.matchParentSize().padding(2.dp))
+                GardenObjectLayer(it, animationPhase = animationPhase, modifier = Modifier.matchParentSize().padding(2.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun GardenObjectLayer(
+    gardenObject: GardenObject,
+    animationPhase: Float,
+    modifier: Modifier = Modifier
+) {
+    val item = ShopCatalog.byId(gardenObject.shopItemId)
+    val visualKey = item?.visualKey.orEmpty()
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        GardenObjectSprite(gardenObject, Modifier.matchParentSize())
+        if (isAnimatedGardenItem(visualKey)) {
+            Canvas(Modifier.matchParentSize()) {
+                drawGardenObjectAnimation(visualKey, animationPhase)
+            }
+        }
+    }
+}
+
+private fun isAnimatedGardenItem(visualKey: String): Boolean =
+    visualKey.contains("tiny_windmill") ||
+        visualKey.contains("knowledge_fountain") ||
+        visualKey.contains("celestial_portal") ||
+        visualKey.contains("mini_waterfall") ||
+        visualKey == "lamp" ||
+        visualKey.contains("lamp_post")
+
+private fun DrawScope.drawGardenObjectAnimation(visualKey: String, phase: Float) {
+    val u = size.minDimension / 10f
+    when {
+        visualKey.contains("tiny_windmill") -> {
+            val pivot = Offset(5f * u, 3.1f * u)
+            rotate(degrees = phase * 360f, pivot = pivot) {
+                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x - 0.25f * u, pivot.y - 2.3f * u), size = Size(0.5f * u, 2.1f * u))
+                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x - 0.25f * u, pivot.y + 0.2f * u), size = Size(0.5f * u, 2.1f * u))
+                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x - 2.3f * u, pivot.y - 0.25f * u), size = Size(2.1f * u, 0.5f * u))
+                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x + 0.2f * u, pivot.y - 0.25f * u), size = Size(2.1f * u, 0.5f * u))
+                drawRect(Color(0xFFBDE7E7), topLeft = Offset(pivot.x - 0.18f * u, pivot.y - 1.8f * u), size = Size(0.36f * u, 1.3f * u))
+                drawRect(Color(0xFFBDE7E7), topLeft = Offset(pivot.x + 0.5f * u, pivot.y - 0.18f * u), size = Size(1.3f * u, 0.36f * u))
+            }
+            drawRect(Color(0xFFFFD96A), topLeft = Offset(4.55f * u, 2.65f * u), size = Size(0.9f * u, 0.9f * u))
+        }
+        visualKey.contains("knowledge_fountain") -> {
+            repeat(3) { index ->
+                val x = (4.1f + index * 0.9f) * u
+                val fall = ((phase + index * 0.22f) % 1f)
+                drawRect(
+                    Color(0xFFBDE7E7).copy(alpha = 0.75f),
+                    topLeft = Offset(x, (2.0f + fall * 2.2f) * u),
+                    size = Size(0.32f * u, 1.15f * u)
+                )
+            }
+            val ripple = 1.8f + phase * 1.5f
+            drawCircle(
+                Color(0xFFE7FFFF).copy(alpha = 0.42f * (1f - phase)),
+                radius = ripple * u,
+                center = Offset(5f * u, 6.15f * u),
+                style = Stroke(width = 0.25f * u)
+            )
+        }
+        visualKey.contains("celestial_portal") -> {
+            val glow = 0.28f + 0.18f * if (phase < 0.5f) phase * 2f else (1f - phase) * 2f
+            drawCircle(
+                Color(0xFFBDE7E7).copy(alpha = glow),
+                radius = 3.0f * u,
+                center = Offset(5f * u, 4.9f * u),
+                style = Stroke(width = 0.45f * u)
+            )
+            repeat(4) { index ->
+                val sparklePhase = (phase + index * 0.25f) % 1f
+                val x = (2.5f + index * 1.65f) * u
+                val y = (2.3f + if (index % 2 == 0) sparklePhase else 1f - sparklePhase) * u
+                drawRect(Color(0xFFFFF4C0), topLeft = Offset(x, y), size = Size(0.42f * u, 0.42f * u))
+            }
+        }
+        visualKey.contains("mini_waterfall") -> {
+            repeat(4) { index ->
+                val stream = ((phase + index * 0.18f) % 1f)
+                drawRect(
+                    Color(0xFFE7FFFF).copy(alpha = 0.82f),
+                    topLeft = Offset((3.3f + index * 0.8f) * u, (2.0f + stream * 3.9f) * u),
+                    size = Size(0.36f * u, 1.4f * u)
+                )
+            }
+            drawRect(Color(0xFFBDE7E7).copy(alpha = 0.62f), topLeft = Offset(2.8f * u, 6.2f * u), size = Size(4.5f * u, 0.55f * u))
+        }
+        visualKey == "lamp" || visualKey.contains("lamp_post") -> {
+            val glow = 0.22f + 0.16f * if (phase < 0.5f) phase * 2f else (1f - phase) * 2f
+            drawCircle(Color(0xFFFFD96A).copy(alpha = glow), radius = 3.2f * u, center = Offset(5f * u, 3.6f * u))
+            drawRect(Color(0xFFFFF4C0), topLeft = Offset(4.45f * u, 2.6f * u), size = Size(1.1f * u, 1.1f * u))
         }
     }
 }

@@ -85,6 +85,44 @@ data class GardenState(
     val objects: List<GardenObject> = emptyList()
 )
 
+data class GardenObjectFootprint(
+    val width: Int,
+    val height: Int
+)
+
+object GardenObjectFootprints {
+    private val SingleTile = GardenObjectFootprint(width = 1, height = 1)
+    private val LargeFeature = GardenObjectFootprint(width = 2, height = 2)
+
+    fun sizeFor(item: ShopItem?): GardenObjectFootprint {
+        val key = item?.visualKey.orEmpty()
+        val id = item?.id.orEmpty()
+        return when {
+            key.contains("pond") -> LargeFeature
+            key.contains("fountain") -> LargeFeature
+            key.contains("garden_arch") || id.contains("garden_arch") -> LargeFeature
+            else -> SingleTile
+        }
+    }
+
+    fun isLarge(item: ShopItem?): Boolean = sizeFor(item) != SingleTile
+
+    fun occupiedTiles(anchorX: Int, anchorY: Int, footprint: GardenObjectFootprint): List<Pair<Int, Int>> =
+        buildList {
+            repeat(footprint.height) { yOffset ->
+                repeat(footprint.width) { xOffset ->
+                    add((anchorX + xOffset) to (anchorY + yOffset))
+                }
+            }
+        }
+
+    fun occupiedTiles(gardenObject: GardenObject, item: ShopItem?): List<Pair<Int, Int>> =
+        occupiedTiles(gardenObject.x, gardenObject.y, sizeFor(item))
+
+    fun containsTile(gardenObject: GardenObject, item: ShopItem?, x: Int, y: Int): Boolean =
+        occupiedTiles(gardenObject, item).any { it.first == x && it.second == y }
+}
+
 @Serializable
 data class HouseObject(
     val id: String,
