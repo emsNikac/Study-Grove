@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -46,6 +47,9 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     private val _reward = MutableStateFlow<StudyReward?>(null)
     val reward: StateFlow<StudyReward?> = _reward.asStateFlow()
 
+    private val _gameStateLoaded = MutableStateFlow(false)
+    val gameStateLoaded: StateFlow<Boolean> = _gameStateLoaded.asStateFlow()
+
     private val _sessionReviewPending = MutableStateFlow(false)
     val sessionReviewPending: StateFlow<Boolean> = _sessionReviewPending.asStateFlow()
 
@@ -58,6 +62,12 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     private val appVisible = MutableStateFlow(false)
 
     init {
+        viewModelScope.launch {
+            val minimumSplash = launch { delay(1_100) }
+            repository.gameData.first()
+            minimumSplash.join()
+            _gameStateLoaded.value = true
+        }
         viewModelScope.launch {
             combine(gameData, appVisible) { data, visible -> data to visible }.collectLatest { (data, visible) ->
                 soundEngine.updateMusic(

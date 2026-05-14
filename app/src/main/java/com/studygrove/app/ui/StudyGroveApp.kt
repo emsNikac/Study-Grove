@@ -25,6 +25,7 @@ import com.studygrove.app.ui.components.NavPixelIcon
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.garden.GardenScreen
 import com.studygrove.app.ui.house.HouseScreen
+import com.studygrove.app.ui.loading.LoadingScreen
 import com.studygrove.app.ui.profile.ProfileScreen
 import com.studygrove.app.ui.settings.SettingsScreen
 import com.studygrove.app.ui.shop.ShopScreen
@@ -50,6 +51,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
     val nowMillis by viewModel.nowMillis.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val reward by viewModel.reward.collectAsStateWithLifecycle()
+    val gameStateLoaded by viewModel.gameStateLoaded.collectAsStateWithLifecycle()
     val sessionReviewPending by viewModel.sessionReviewPending.collectAsStateWithLifecycle()
     val selectedGardenItem by viewModel.selectedGardenItemId.collectAsStateWithLifecycle()
     val selectedHouseItem by viewModel.selectedHouseItemId.collectAsStateWithLifecycle()
@@ -63,130 +65,134 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
     }
 
     StudyGroveTheme(isNight = isNight) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    MainNavScreens.forEach { destination ->
-                        NavigationBarItem(
-                            selected = screen == destination,
-                            onClick = { viewModel.navigate(destination) },
-                            icon = { NavPixelIcon(destination, selected = screen == destination) },
-                            label = {
-                                Text(
-                                    destination.label,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Clip
+        if (!gameStateLoaded) {
+            LoadingScreen()
+        } else {
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                bottomBar = {
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                        MainNavScreens.forEach { destination ->
+                            NavigationBarItem(
+                                selected = screen == destination,
+                                onClick = { viewModel.navigate(destination) },
+                                icon = { NavPixelIcon(destination, selected = screen == destination) },
+                                label = {
+                                    Text(
+                                        destination.label,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Clip
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onSurface,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f),
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f),
+                                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                 )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onSurface,
-                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f),
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f),
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                             )
+                        }
+                    }
+                }
+            ) { paddingValues ->
+                Column(Modifier.padding(paddingValues)) {
+                    when (screen) {
+                        StudyGroveScreen.GARDEN -> GardenScreen(
+                            gameData = gameData,
+                            selectedItemId = selectedGardenItem,
+                            nowMillis = nowMillis,
+                            onTileTapped = viewModel::onGardenTileTapped,
+                            onSelectGardenItem = viewModel::selectGardenItem,
+                            onClearSelection = viewModel::clearGardenSelection,
+                            onHouseThemeChanged = viewModel::setHouseThemeEnabled,
+                            onNavigate = viewModel::navigate
+                        )
+                        StudyGroveScreen.TIMER -> StudyTimerScreen(
+                            gameData = gameData,
+                            nowMillis = nowMillis,
+                            onStart = viewModel::startTimer,
+                            onPause = viewModel::togglePause,
+                            onCancel = viewModel::cancelTimer
+                        )
+                        StudyGroveScreen.SHOP -> ShopScreen(
+                            gameData = gameData,
+                            onBuyItem = viewModel::buyItem
+                        )
+                        StudyGroveScreen.HOUSE -> HouseScreen(
+                            gameData = gameData,
+                            selectedItemId = selectedHouseItem,
+                            onTileTapped = viewModel::onHouseTileTapped,
+                            onSelectFurniture = viewModel::selectHouseItem,
+                            onClearSelection = viewModel::clearHouseSelection
+                        )
+                        StudyGroveScreen.PROFILE -> ProfileScreen(
+                            gameData = gameData,
+                            onEquipCosmetic = viewModel::equipCosmetic,
+                            onOpenSettings = { viewModel.navigate(StudyGroveScreen.SETTINGS) }
+                        )
+                        StudyGroveScreen.SETTINGS -> SettingsScreen(
+                            settings = gameData.settings,
+                            onSoundChanged = viewModel::setSoundEnabled,
+                            onNotificationsChanged = viewModel::setNotificationsEnabled,
+                            onGentleRemindersChanged = viewModel::setGentleRemindersEnabled,
+                            onTestModeChanged = viewModel::setTestModeEnabled,
+                            onDefaultTimerChanged = viewModel::setDefaultTimerMinutes,
+                            onThemeSongChanged = viewModel::setThemeSong,
+                            onResetProgress = viewModel::resetProgress
                         )
                     }
                 }
             }
-        ) { paddingValues ->
-            Column(Modifier.padding(paddingValues)) {
-                when (screen) {
-                    StudyGroveScreen.GARDEN -> GardenScreen(
-                        gameData = gameData,
-                        selectedItemId = selectedGardenItem,
-                        nowMillis = nowMillis,
-                        onTileTapped = viewModel::onGardenTileTapped,
-                        onSelectGardenItem = viewModel::selectGardenItem,
-                        onClearSelection = viewModel::clearGardenSelection,
-                        onHouseThemeChanged = viewModel::setHouseThemeEnabled,
-                        onNavigate = viewModel::navigate
-                    )
-                    StudyGroveScreen.TIMER -> StudyTimerScreen(
-                        gameData = gameData,
-                        nowMillis = nowMillis,
-                        onStart = viewModel::startTimer,
-                        onPause = viewModel::togglePause,
-                        onCancel = viewModel::cancelTimer
-                    )
-                    StudyGroveScreen.SHOP -> ShopScreen(
-                        gameData = gameData,
-                        onBuyItem = viewModel::buyItem
-                    )
-                    StudyGroveScreen.HOUSE -> HouseScreen(
-                        gameData = gameData,
-                        selectedItemId = selectedHouseItem,
-                        onTileTapped = viewModel::onHouseTileTapped,
-                        onSelectFurniture = viewModel::selectHouseItem,
-                        onClearSelection = viewModel::clearHouseSelection
-                    )
-                    StudyGroveScreen.PROFILE -> ProfileScreen(
-                        gameData = gameData,
-                        onEquipCosmetic = viewModel::equipCosmetic,
-                        onOpenSettings = { viewModel.navigate(StudyGroveScreen.SETTINGS) }
-                    )
-                    StudyGroveScreen.SETTINGS -> SettingsScreen(
-                        settings = gameData.settings,
-                        onSoundChanged = viewModel::setSoundEnabled,
-                        onNotificationsChanged = viewModel::setNotificationsEnabled,
-                        onGentleRemindersChanged = viewModel::setGentleRemindersEnabled,
-                        onTestModeChanged = viewModel::setTestModeEnabled,
-                        onDefaultTimerChanged = viewModel::setDefaultTimerMinutes,
-                        onThemeSongChanged = viewModel::setThemeSong,
-                        onResetProgress = viewModel::resetProgress
-                    )
-                }
-            }
-        }
-        if (sessionReviewPending) {
-            AlertDialog(
-                onDismissRequest = {},
-                title = { Text("Did this session count?", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace) },
-                text = {
-                    Text("Timer finished. Did you effectively study, or was this mostly procrastination? Either answer is okay.")
-                },
-                confirmButton = {
-                    PixelButton("Count it", color = GroveMoss) {
-                        viewModel.confirmFinishedSession(true)
-                    }
-                },
-                dismissButton = {
-                    PixelButton("Do not count", color = GroveBerry) {
-                        viewModel.confirmFinishedSession(false)
-                    }
-                }
-            )
-        }
-        reward?.let { sessionReward ->
-            AlertDialog(
-                onDismissRequest = viewModel::dismissReward,
-                title = { Text("Session complete", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace) },
-                text = {
-                    Column {
-                        Text(sessionReward.message)
-                        Text("Study coins: ${sessionReward.baseCoins}")
-                        Text("Full-session bonus: ${sessionReward.fullSessionBonus}")
-                        Text("Streak bonus: ${sessionReward.streakBonus}")
-                        Text("Daily quest bonus: ${sessionReward.questBonus}")
-                        if (sessionReward.upgradeBonus > 0) {
-                            Text("Upgrade bonus: ${sessionReward.upgradeBonus}")
+            if (sessionReviewPending) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text("Did this session count?", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace) },
+                    text = {
+                        Text("Timer finished. Did you effectively study, or was this mostly procrastination? Either answer is okay.")
+                    },
+                    confirmButton = {
+                        PixelButton("Count it", color = GroveMoss) {
+                            viewModel.confirmFinishedSession(true)
                         }
-                        Text("Total: ${sessionReward.totalCoins} coins, ${sessionReward.xpEarned} XP")
+                    },
+                    dismissButton = {
+                        PixelButton("Do not count", color = GroveBerry) {
+                            viewModel.confirmFinishedSession(false)
+                        }
                     }
-                },
-                confirmButton = {
-                    PixelButton("Tend garden", color = GroveMoss, onClick = viewModel::dismissReward)
-                },
-                dismissButton = {
-                    PixelButton("Profile", color = GroveBerry) {
-                        viewModel.dismissReward()
-                        viewModel.navigate(StudyGroveScreen.PROFILE)
+                )
+            }
+            reward?.let { sessionReward ->
+                AlertDialog(
+                    onDismissRequest = viewModel::dismissReward,
+                    title = { Text("Session complete", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace) },
+                    text = {
+                        Column {
+                            Text(sessionReward.message)
+                            Text("Study coins: ${sessionReward.baseCoins}")
+                            Text("Full-session bonus: ${sessionReward.fullSessionBonus}")
+                            Text("Streak bonus: ${sessionReward.streakBonus}")
+                            Text("Daily quest bonus: ${sessionReward.questBonus}")
+                            if (sessionReward.upgradeBonus > 0) {
+                                Text("Upgrade bonus: ${sessionReward.upgradeBonus}")
+                            }
+                            Text("Total: ${sessionReward.totalCoins} coins, ${sessionReward.xpEarned} XP")
+                        }
+                    },
+                    confirmButton = {
+                        PixelButton("Tend garden", color = GroveMoss, onClick = viewModel::dismissReward)
+                    },
+                    dismissButton = {
+                        PixelButton("Profile", color = GroveBerry) {
+                            viewModel.dismissReward()
+                            viewModel.navigate(StudyGroveScreen.PROFILE)
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }
