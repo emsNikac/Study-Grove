@@ -50,6 +50,7 @@ fun SettingsScreen(
     onGentleRemindersChanged: (Boolean) -> Unit,
     onTestModeChanged: (Boolean) -> Unit,
     onDefaultTimerChanged: (Int) -> Unit,
+    onThemeSongChanged: (String) -> Unit,
     onResetProgress: () -> Unit
 ) {
     var confirmReset by remember { mutableStateOf(false) }
@@ -98,6 +99,20 @@ fun SettingsScreen(
         )
         PixelPanel(color = GroveCream) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Theme song", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                Text(
+                    "Choose the background music that plays while you tend the grove.",
+                    color = GroveInk.copy(alpha = 0.7f)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ThemeSongButton("Theme 1", "theme_1", settings.themeSong, onThemeSongChanged, Modifier.weight(1f))
+                    ThemeSongButton("Theme 2", "theme_2", settings.themeSong, onThemeSongChanged, Modifier.weight(1f))
+                    ThemeSongButton("Theme 3", "theme_3", settings.themeSong, onThemeSongChanged, Modifier.weight(1f))
+                }
+            }
+        }
+        PixelPanel(color = GroveCream) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Timer preference", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                 Text(
                     "Default custom timer length: $sliderMinutes minutes",
@@ -141,6 +156,22 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+@Composable
+private fun ThemeSongButton(
+    label: String,
+    value: String,
+    selectedValue: String,
+    onThemeSongChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PixelButton(
+        text = if (value == selectedValue) "$label On" else label,
+        color = if (value == selectedValue) GroveMoss else GroveClay,
+        modifier = modifier,
+        onClick = { onThemeSongChanged(value) }
+    )
 }
 
 @Composable

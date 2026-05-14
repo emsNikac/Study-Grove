@@ -57,9 +57,16 @@ fun GameData.normalized(
         upgrades = normalizedUpgrades,
         achievements = normalizedAchievements,
         dailyQuests = normalizedQuests,
+        settings = settings.normalized(),
         sessions = sessions.sortedByDescending { it.completedAtEpochMillis }.take(365)
     )
 }
+
+private fun SettingsState.normalized(): SettingsState =
+    copy(
+        defaultTimerMinutes = defaultTimerMinutes.coerceIn(5, 180),
+        themeSong = if (themeSong in setOf("theme_1", "theme_2", "theme_3")) themeSong else "theme_1"
+    )
 
 private fun HouseState.withOwnedHouseUpgradeEffects(ownedUpgradeIds: List<String>): HouseState {
     val owned = ownedUpgradeIds.toSet()

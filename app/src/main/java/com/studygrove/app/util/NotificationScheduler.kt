@@ -30,18 +30,36 @@ class NotificationScheduler(private val context: Context) {
         createChannels()
     }
 
-    fun scheduleTimerComplete(triggerAtMillis: Long, enabled: Boolean) {
+    fun scheduleTimerComplete(triggerAtMillis: Long, enabled: Boolean, soundEnabled: Boolean) {
         cancelTimerComplete()
         if (!enabled) return
-        alarmManager.set(
-            AlarmManager.RTC_WAKEUP,
-            triggerAtMillis,
-            receiverIntent(
+        val openIntent = PendingIntent.getActivity(
+            context,
+            TimerRequestCode,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        scheduleTimerWakeup(
+            triggerAtMillis = triggerAtMillis,
+            openIntent = openIntent,
+            timerIntent = receiverIntent(
                 requestCode = TimerRequestCode,
                 action = StudyGroveNotificationReceiver.ActionTimerComplete,
                 title = "Study session complete",
-                text = "Nice work. Return to Study Grove to collect your reward."
+                text = "Nice work. Return to Study Grove to review your focus session.",
+                soundEnabled = soundEnabled
             )
+        )
+    }
+
+    fun showTimerCompleteNow(enabled: Boolean, soundEnabled: Boolean) {
+        if (!enabled) return
+        StudyGroveNotificationReceiver.showNotification(
+            context = context,
+            action = StudyGroveNotificationReceiver.ActionTimerComplete,
+            title = "Study session complete",
+            text = "Nice work. Return to Study Grove to review your focus session.",
+            soundEnabled = soundEnabled
         )
     }
 
@@ -51,7 +69,8 @@ class NotificationScheduler(private val context: Context) {
                 requestCode = TimerRequestCode,
                 action = StudyGroveNotificationReceiver.ActionTimerComplete,
                 title = "",
-                text = ""
+                text = "",
+                soundEnabled = false
             )
         )
     }
@@ -75,7 +94,8 @@ class NotificationScheduler(private val context: Context) {
                 requestCode = ReminderRequestCode,
                 action = StudyGroveNotificationReceiver.ActionReminder,
                 title = "Tend your Study Grove",
-                text = "A small focus session can brighten the garden today."
+                text = "A small focus session can brighten the garden today.",
+                soundEnabled = false
             )
         )
     }
@@ -86,7 +106,8 @@ class NotificationScheduler(private val context: Context) {
                 requestCode = ReminderRequestCode,
                 action = StudyGroveNotificationReceiver.ActionReminder,
                 title = "",
-                text = ""
+                text = "",
+                soundEnabled = false
             )
         )
     }
@@ -95,12 +116,14 @@ class NotificationScheduler(private val context: Context) {
         requestCode: Int,
         action: String,
         title: String,
-        text: String
+        text: String,
+        soundEnabled: Boolean
     ): PendingIntent {
         val intent = Intent(context, StudyGroveNotificationReceiver::class.java).apply {
             this.action = action
             putExtra(StudyGroveNotificationReceiver.ExtraTitle, title)
             putExtra(StudyGroveNotificationReceiver.ExtraText, text)
+            putExtra(StudyGroveNotificationReceiver.ExtraSoundEnabled, soundEnabled)
         }
         return PendingIntent.getBroadcast(
             context,
@@ -109,6 +132,30 @@ class NotificationScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
+
+    private fun scheduleTimerWakeup(
+        triggerAtMillis: Long,
+        openIntent: PendingIntent,
+        timerIntent: PendingIntent
+    ) {
+        if (canUseExactAlarms()) {
+            runCatching {
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(triggerAtMillis, openIntent),
+                    timerIntent
+                )
+            }.onSuccess {
+                return
+            }
+        }
+
+        // Some Android 12+ builds reject exact alarms unless the user grants special
+        // access. Falling back to an inexact wakeup keeps the timer from crashing.
+        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, timerIntent)
+    }
+
+    private fun canUseExactAlarms(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     private fun createChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -132,30 +179,14 @@ class NotificationScheduler(private val context: Context) {
 
 class StudyGroveNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
+        val pendingResult = goAsync()
         val action = intent.action.orEmpty()
-        val channel = if (action == ActionReminder) ReminderChannelId else TimerChannelId
         val title = intent.getStringExtra(ExtraTitle).orEmpty()
         val text = intent.getStringExtra(ExtraText).orEmpty()
-        val openIntent = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notification = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setContentIntent(openIntent)
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
-        NotificationManagerCompat.from(context).notify(action.hashCode(), notification)
+        val soundEnabled = intent.getBooleanExtra(ExtraSoundEnabled, false)
+        showNotification(context, action, title, text, soundEnabled) {
+            pendingResult.finish()
+        }
     }
 
     companion object {
@@ -163,5 +194,50 @@ class StudyGroveNotificationReceiver : BroadcastReceiver() {
         const val ActionReminder = "com.studygrove.app.STUDY_REMINDER"
         const val ExtraTitle = "title"
         const val ExtraText = "text"
+        const val ExtraSoundEnabled = "sound_enabled"
+
+        fun showNotification(
+            context: Context,
+            action: String,
+            title: String,
+            text: String,
+            soundEnabled: Boolean,
+            onFinished: (() -> Unit)? = null
+        ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                onFinished?.invoke()
+                return
+            }
+            val channel = if (action == ActionReminder) ReminderChannelId else TimerChannelId
+            val openIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notification = NotificationCompat.Builder(context, channel)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(openIntent)
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setSilent(action == ActionTimerComplete)
+                .build()
+            NotificationManagerCompat.from(context).notify(action.hashCode(), notification)
+            if (action == ActionTimerComplete) {
+                SoundEngine.playOneShotAsset(
+                    context = context,
+                    assetName = SoundEngine.SessionNotificationSound,
+                    enabled = soundEnabled,
+                    onFinished = onFinished
+                )
+            } else {
+                onFinished?.invoke()
+            }
+        }
     }
 }

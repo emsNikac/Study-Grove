@@ -416,10 +416,11 @@ data class DailyQuestState(
 @Serializable
 data class SettingsState(
     val soundEnabled: Boolean = true,
-    val notificationsEnabled: Boolean = false,
+    val notificationsEnabled: Boolean = true,
     val defaultTimerMinutes: Int = 25,
     val gentleRemindersEnabled: Boolean = false,
-    val testModeEnabled: Boolean = false
+    val testModeEnabled: Boolean = false,
+    val themeSong: String = "theme_1"
 )
 
 @Serializable

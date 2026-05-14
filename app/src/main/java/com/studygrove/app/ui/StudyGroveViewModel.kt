@@ -18,13 +18,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class StudyGroveViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = StudyGroveRepository(StudyGroveLocalDataSource(application.applicationContext))
     private val notificationScheduler = NotificationScheduler(application.applicationContext)
-    private val soundEngine = SoundEngine()
+    private val soundEngine = SoundEngine(application.applicationContext)
 
     val gameData: StateFlow<GameData> = repository.gameData.stateIn(
         scope = viewModelScope,
@@ -55,6 +56,15 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         viewModelScope.launch {
+            gameData.collectLatest { data ->
+                soundEngine.updateMusic(
+                    enabled = data.settings.soundEnabled,
+                    themeSong = data.settings.themeSong,
+                    timerActive = data.activeTimer != null
+                )
+            }
+        }
+        viewModelScope.launch {
             while (true) {
                 val now = System.currentTimeMillis()
                 _nowMillis.value = now
@@ -62,8 +72,12 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
                 if (timer != null && !timer.isPaused && !_sessionReviewPending.value && FocusTimerEngine.isComplete(timer, now)) {
                     _sessionReviewPending.value = true
                     _screen.value = StudyGroveScreen.TIMER
+                    val settings = gameData.value.settings
+                    notificationScheduler.showTimerCompleteNow(
+                        enabled = settings.notificationsEnabled,
+                        soundEnabled = settings.soundEnabled
+                    )
                     notificationScheduler.cancelTimerComplete()
-                    soundEngine.complete(gameData.value.settings.soundEnabled)
                 }
                 delay(1_000)
             }
@@ -83,7 +97,8 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             if (timer != null) {
                 notificationScheduler.scheduleTimerComplete(
                     triggerAtMillis = FocusTimerEngine.finishEpochMillis(timer, System.currentTimeMillis()),
-                    enabled = data.settings.notificationsEnabled
+                    enabled = data.settings.notificationsEnabled,
+                    soundEnabled = data.settings.soundEnabled
                 )
                 _message.value = "Timer started. Your grove is waiting patiently."
                 soundEngine.click(data.settings.soundEnabled)
@@ -101,7 +116,8 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             } else {
                 notificationScheduler.scheduleTimerComplete(
                     triggerAtMillis = FocusTimerEngine.finishEpochMillis(timer, System.currentTimeMillis()),
-                    enabled = data.settings.notificationsEnabled
+                    enabled = data.settings.notificationsEnabled,
+                    soundEnabled = data.settings.soundEnabled
                 )
             }
             _message.value = result.message
@@ -112,10 +128,11 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     fun cancelTimer() {
         viewModelScope.launch {
             _sessionReviewPending.value = false
+            val hadTimer = repository.current().activeTimer != null
             val result = repository.cancelTimer()
             notificationScheduler.cancelTimerComplete()
             _message.value = result.message
-            soundEngine.click(gameData.value.settings.soundEnabled)
+            if (hadTimer) soundEngine.cancelSession(gameData.value.settings.soundEnabled) else soundEngine.click(gameData.value.settings.soundEnabled)
         }
     }
 
@@ -128,7 +145,7 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
                 val result = repository.discardFinishedTimer()
                 notificationScheduler.cancelTimerComplete()
                 _message.value = result.message
-                soundEngine.click(repository.current().settings.soundEnabled)
+                soundEngine.cancelSession(repository.current().settings.soundEnabled)
             }
         }
     }
@@ -164,7 +181,13 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             if (result.success && selected != null) _selectedGardenItemId.value = null
             _message.value = result.message
             val enabled = repository.current().settings.soundEnabled
-            if (result.success) soundEngine.reward(enabled) else soundEngine.click(enabled)
+            when {
+                result.success && selected != null -> soundEngine.planting(enabled)
+                result.success && (result.message.startsWith("Moved") || result.message.startsWith("Removed")) -> {
+                    soundEngine.takeOut(enabled)
+                }
+                else -> soundEngine.click(enabled)
+            }
         }
     }
 
@@ -189,7 +212,8 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             }
             if (result.success && selected != null) _selectedHouseItemId.value = null
             _message.value = result.message
-            soundEngine.click(repository.current().settings.soundEnabled)
+            val enabled = repository.current().settings.soundEnabled
+            if (result.success && selected != null) soundEngine.planting(enabled) else soundEngine.click(enabled)
         }
     }
 
@@ -206,6 +230,15 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             repository.updateSettings { data ->
                 data.copy(settings = data.settings.copy(soundEnabled = enabled))
             }
+            val data = repository.current()
+            val timer = data.activeTimer
+            if (timer != null && data.settings.notificationsEnabled) {
+                notificationScheduler.scheduleTimerComplete(
+                    triggerAtMillis = FocusTimerEngine.finishEpochMillis(timer, System.currentTimeMillis()),
+                    enabled = true,
+                    soundEnabled = enabled
+                )
+            }
             _message.value = if (enabled) "Sound on." else "Sound off."
         }
     }
@@ -215,16 +248,28 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             repository.updateSettings { data ->
                 data.copy(settings = data.settings.copy(notificationsEnabled = enabled))
             }
-            val timer = repository.current().activeTimer
+            val data = repository.current()
+            val timer = data.activeTimer
             if (enabled && timer != null) {
                 notificationScheduler.scheduleTimerComplete(
                     triggerAtMillis = FocusTimerEngine.finishEpochMillis(timer, System.currentTimeMillis()),
-                    enabled = true
+                    enabled = true,
+                    soundEnabled = data.settings.soundEnabled
                 )
             } else if (!enabled) {
                 notificationScheduler.cancelTimerComplete()
             }
             _message.value = if (enabled) "Timer notifications enabled." else "Timer notifications disabled."
+        }
+    }
+
+    fun setThemeSong(themeSong: String) {
+        viewModelScope.launch {
+            val safeTheme = themeSong.takeIf { it in setOf("theme_1", "theme_2", "theme_3") } ?: "theme_1"
+            repository.updateSettings { data ->
+                data.copy(settings = data.settings.copy(themeSong = safeTheme))
+            }
+            _message.value = "Theme ${safeTheme.removePrefix("theme_")} selected."
         }
     }
 
@@ -280,11 +325,16 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private suspend fun completeTimer(nowMillis: Long) {
+        val previousLevel = repository.current().player.level
         val completedReward = repository.completeActiveTimer(nowMillis) ?: return
         notificationScheduler.cancelTimerComplete()
         _reward.value = completedReward
         _screen.value = StudyGroveScreen.GARDEN
-        soundEngine.complete(repository.current().settings.soundEnabled)
+        val data = repository.current()
+        soundEngine.sessionFinished(data.settings.soundEnabled)
+        if (data.player.level > previousLevel) {
+            soundEngine.levelUp(data.settings.soundEnabled)
+        }
     }
 
     override fun onCleared() {

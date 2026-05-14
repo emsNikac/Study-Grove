@@ -41,6 +41,11 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("src/main/java/com/studygrove/app/sounds")
+        }
+    }
 }
 
 dependencies {

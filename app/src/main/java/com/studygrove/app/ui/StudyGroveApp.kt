@@ -134,6 +134,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                         onGentleRemindersChanged = viewModel::setGentleRemindersEnabled,
                         onTestModeChanged = viewModel::setTestModeEnabled,
                         onDefaultTimerChanged = viewModel::setDefaultTimerMinutes,
+                        onThemeSongChanged = viewModel::setThemeSong,
                         onResetProgress = viewModel::resetProgress
                     )
                 }
