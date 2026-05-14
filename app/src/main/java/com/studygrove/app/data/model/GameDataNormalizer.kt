@@ -156,6 +156,7 @@ private fun HouseState.migrateToFixedRoomSizes(existingInventory: List<Inventory
     val safeLevel = level.coerceIn(1, 8)
     val safeSpecialUnlocks = specialUnlocks.filter { it.isNotBlank() }.distinct()
     val safeUnlockedThemes = unlockedThemes.filter { it.isNotBlank() }.distinct()
+    val safeDisabledThemes = disabledThemes.filter { it in safeUnlockedThemes }.distinct()
     val safeUnlockedRooms = HouseRoomUnlocks.getUnlockedRooms(safeLevel, safeSpecialUnlocks.toSet())
     val safeCurrentRoom = if (currentRoom in safeUnlockedRooms) currentRoom else HouseRoom.MAIN
     val currentSpec = HouseRooms.spec(safeCurrentRoom)
@@ -192,6 +193,7 @@ private fun HouseState.migrateToFixedRoomSizes(existingInventory: List<Inventory
         unlockedRooms = safeUnlockedRooms,
         specialUnlocks = safeSpecialUnlocks,
         unlockedThemes = safeUnlockedThemes,
+        disabledThemes = safeDisabledThemes,
         objects = keptObjects
     )
     return HouseMigrationResult(

@@ -483,6 +483,24 @@ class StudyGroveRepository(
         return result
     }
 
+    suspend fun setHouseThemeEnabled(themeId: String, enabled: Boolean): PlacementResult {
+        var result = PlacementResult(false, "That house theme is not unlocked yet.")
+        localDataSource.update { data ->
+            if (themeId !in data.house.unlockedThemes) {
+                data
+            } else {
+                val disabledThemes = if (enabled) {
+                    data.house.disabledThemes - themeId
+                } else {
+                    (data.house.disabledThemes + themeId).distinct()
+                }
+                result = PlacementResult(true, if (enabled) "House theme enabled." else "House theme disabled.")
+                data.copy(house = data.house.copy(disabledThemes = disabledThemes))
+            }
+        }
+        return result
+    }
+
     suspend fun updateSettings(transform: (GameData) -> GameData): GameData =
         localDataSource.update(transform)
 
@@ -620,7 +638,12 @@ class StudyGroveRepository(
         copy(house = house.copy(specialUnlocks = (house.specialUnlocks + unlocks).distinct()))
 
     private fun GameData.withHouseThemes(vararg themes: String): GameData =
-        copy(house = house.copy(unlockedThemes = (house.unlockedThemes + themes).distinct()))
+        copy(
+            house = house.copy(
+                unlockedThemes = (house.unlockedThemes + themes).distinct(),
+                disabledThemes = house.disabledThemes - themes.toSet()
+            )
+        )
 
     private fun GameData.withUpgradeBonuses(
         focusPercent: Int = 0,

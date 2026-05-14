@@ -102,6 +102,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                         onTileTapped = viewModel::onGardenTileTapped,
                         onSelectGardenItem = viewModel::selectGardenItem,
                         onClearSelection = viewModel::clearGardenSelection,
+                        onHouseThemeChanged = viewModel::setHouseThemeEnabled,
                         onNavigate = viewModel::navigate
                     )
                     StudyGroveScreen.TIMER -> StudyTimerScreen(

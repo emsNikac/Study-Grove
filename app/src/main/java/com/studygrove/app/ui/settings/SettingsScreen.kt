@@ -55,6 +55,25 @@ fun SettingsScreen(
 ) {
     var confirmReset by remember { mutableStateOf(false) }
     var sliderMinutes by remember(settings.defaultTimerMinutes) { mutableIntStateOf(settings.defaultTimerMinutes) }
+    var showTestModeOption by remember { mutableStateOf(false) }
+    var testModeSequenceIndex by remember { mutableIntStateOf(0) }
+    val testModeSequence = remember {
+        List(8) { "theme_1" } + List(10) { "theme_3" } + List(2) { "theme_2" }
+    }
+    fun onThemeButtonTapped(themeSong: String) {
+        val nextIndex = when {
+            themeSong == testModeSequence[testModeSequenceIndex] -> testModeSequenceIndex + 1
+            themeSong == testModeSequence.first() -> 1
+            else -> 0
+        }
+        if (nextIndex == testModeSequence.size) {
+            showTestModeOption = !showTestModeOption
+            testModeSequenceIndex = 0
+        } else {
+            testModeSequenceIndex = nextIndex
+        }
+        onThemeSongChanged(themeSong)
+    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted -> onNotificationsChanged(granted) }
@@ -91,12 +110,14 @@ fun SettingsScreen(
             checked = settings.gentleRemindersEnabled,
             onCheckedChange = onGentleRemindersChanged
         )
-        SettingSwitchRow(
-            title = "Test mode",
-            description = "Unlocks every item for unlimited free placement and cosmetic testing.",
-            checked = settings.testModeEnabled,
-            onCheckedChange = onTestModeChanged
-        )
+        if (showTestModeOption) {
+            SettingSwitchRow(
+                title = "Test mode",
+                description = "Unlocks every item for unlimited free placement and cosmetic testing.",
+                checked = settings.testModeEnabled,
+                onCheckedChange = onTestModeChanged
+            )
+        }
         PixelPanel(color = GroveCream) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Theme song", color = GroveInk, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
@@ -105,9 +126,9 @@ fun SettingsScreen(
                     color = GroveInk.copy(alpha = 0.7f)
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    ThemeSongButton("Theme 1", "theme_1", settings.themeSong, onThemeSongChanged, Modifier.weight(1f))
-                    ThemeSongButton("Theme 2", "theme_2", settings.themeSong, onThemeSongChanged, Modifier.weight(1f))
-                    ThemeSongButton("Theme 3", "theme_3", settings.themeSong, onThemeSongChanged, Modifier.weight(1f))
+                    ThemeSongButton("Theme 1", "theme_1", settings.themeSong, { onThemeButtonTapped(it) }, Modifier.weight(1f))
+                    ThemeSongButton("Theme 2", "theme_2", settings.themeSong, { onThemeButtonTapped(it) }, Modifier.weight(1f))
+                    ThemeSongButton("Theme 3", "theme_3", settings.themeSong, { onThemeButtonTapped(it) }, Modifier.weight(1f))
                 }
             }
         }

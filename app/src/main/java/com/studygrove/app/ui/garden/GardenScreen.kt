@@ -50,6 +50,7 @@ import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
 import com.studygrove.app.data.model.GardenObjectFootprints
 import com.studygrove.app.data.model.GardenObjectType
+import com.studygrove.app.data.model.HouseSpecialUnlocks
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.ui.StudyGroveScreen
 import com.studygrove.app.ui.components.GardenObjectSprite
@@ -80,9 +81,11 @@ fun GardenScreen(
     onTileTapped: (Int, Int) -> Unit,
     onSelectGardenItem: (String) -> Unit,
     onClearSelection: () -> Unit,
+    onHouseThemeChanged: (String, Boolean) -> Unit,
     onNavigate: (StudyGroveScreen) -> Unit
 ) {
     var showGardenInventory by remember { mutableStateOf(false) }
+    var showHouseThemes by remember { mutableStateOf(false) }
     val visualTheme = gameData.upgrades.visualTheme
     val isNight = visualTheme == "night" || Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).hour !in 6..18
     Column(
@@ -120,7 +123,10 @@ fun GardenScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             SectionTitle("Garden", Modifier.weight(1f))
-            PixelButton("Garden bag", color = GroveMoss, onClick = { showGardenInventory = true })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PixelButton("House themes", color = Color(0xFF7B6BB7), onClick = { showHouseThemes = true })
+                PixelButton("Garden bag", color = GroveMoss, onClick = { showGardenInventory = true })
+            }
         }
         GardenGrid(gameData = gameData, onTileTapped = onTileTapped)
         SectionTitle("Daily quests")
@@ -146,6 +152,70 @@ fun GardenScreen(
             }
         )
     }
+    if (showHouseThemes) {
+        AlertDialog(
+            onDismissRequest = { showHouseThemes = false },
+            title = {
+                Text("House themes", fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+            },
+            text = {
+                HouseThemesPanel(
+                    unlockedThemes = gameData.house.unlockedThemes,
+                    disabledThemes = gameData.house.disabledThemes,
+                    onHouseThemeChanged = onHouseThemeChanged
+                )
+            },
+            confirmButton = {
+                PixelButton("Close", color = GroveMoss) { showHouseThemes = false }
+            }
+        )
+    }
+}
+
+@Composable
+private fun HouseThemesPanel(
+    unlockedThemes: List<String>,
+    disabledThemes: List<String>,
+    onHouseThemeChanged: (String, Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (unlockedThemes.isEmpty()) {
+            Text(
+                "No house themes unlocked yet. Late-game house upgrades will appear here.",
+                color = GroveInk.copy(alpha = 0.72f)
+            )
+        } else {
+            unlockedThemes.forEach { themeId ->
+                val enabled = themeId !in disabledThemes
+                PixelPanel(color = GroveCream) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                houseThemeName(themeId),
+                                color = GroveInk,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                if (enabled) "Exterior effect is on." else "Exterior effect is off.",
+                                color = GroveInk.copy(alpha = 0.68f),
+                                fontSize = 12.sp
+                            )
+                        }
+                        PixelButton(
+                            text = if (enabled) "On" else "Off",
+                            color = if (enabled) GroveMoss else GroveClay,
+                            onClick = { onHouseThemeChanged(themeId, !enabled) }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -167,6 +237,13 @@ private fun GardenActionGrid(onNavigate: (StudyGroveScreen) -> Unit) {
 
 @Composable
 private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: String?) {
+    val enabledHouseThemes = gameData.house.unlockedThemes.filterNot { it in gameData.house.disabledThemes }
+    val activeHouseTheme = when {
+        HouseSpecialUnlocks.GrandEstateTheme in enabledHouseThemes -> HouseSpecialUnlocks.GrandEstateTheme
+        HouseSpecialUnlocks.CelestialTheme in enabledHouseThemes -> HouseSpecialUnlocks.CelestialTheme
+        HouseSpecialUnlocks.DreamLibraryTheme in enabledHouseThemes -> HouseSpecialUnlocks.DreamLibraryTheme
+        else -> null
+    }
     val transition = rememberInfiniteTransition(label = "clouds")
     val drift by transition.animateFloat(
         initialValue = -40f,
@@ -196,7 +273,7 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: Stri
                 val houseHeight = 36f + houseLevel * 5f
                 val houseX = 2.7f * u
                 val houseY = size.height - 28f - houseHeight
-                val wall = when (houseLevel) {
+                val baseWall = when (houseLevel) {
                     1 -> GroveClay
                     2 -> Color(0xFFD48655)
                     3 -> Color(0xFFB96E4A)
@@ -206,7 +283,7 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: Stri
                     7 -> Color(0xFFB98A78)
                     else -> Color(0xFFD9B16F)
                 }
-                val roof = when (houseLevel) {
+                val baseRoof = when (houseLevel) {
                     1 -> Color(0xFF8D4C3B)
                     2 -> Color(0xFF7F483A)
                     3 -> Color(0xFF5E5A45)
@@ -215,6 +292,18 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: Stri
                     6 -> Color(0xFF4B4D63)
                     7 -> Color(0xFF35465D)
                     else -> Color(0xFF3D355E)
+                }
+                val wall = when (activeHouseTheme) {
+                    HouseSpecialUnlocks.DreamLibraryTheme -> Color(0xFFC79B6A)
+                    HouseSpecialUnlocks.CelestialTheme -> Color(0xFF6B6FA0)
+                    HouseSpecialUnlocks.GrandEstateTheme -> Color(0xFFE0B96B)
+                    else -> baseWall
+                }
+                val roof = when (activeHouseTheme) {
+                    HouseSpecialUnlocks.DreamLibraryTheme -> Color(0xFF5C4A72)
+                    HouseSpecialUnlocks.CelestialTheme -> Color(0xFF303965)
+                    HouseSpecialUnlocks.GrandEstateTheme -> Color(0xFF4C3658)
+                    else -> baseRoof
                 }
                 drawRect(GroveInk.copy(alpha = 0.18f), topLeft = Offset(houseX + 0.4f * u, size.height - 30f), size = Size(houseWidth, 5f))
                 drawRect(wall.copy(alpha = 0.65f), topLeft = Offset(houseX + 0.8f * u, houseY + 0.5f * u), size = Size(houseWidth, houseHeight))
@@ -257,6 +346,27 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: Stri
                 if (houseLevel >= 8) {
                     drawRect(Color(0xFFFFD96A), topLeft = Offset(houseX + houseWidth * 0.47f, houseY - 3.85f * u), size = Size(0.9f * u, 0.9f * u))
                     drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth * 0.47f + 0.2f * u, houseY - 3.65f * u), size = Size(0.5f * u, 0.5f * u))
+                }
+                when (activeHouseTheme) {
+                    HouseSpecialUnlocks.DreamLibraryTheme -> {
+                        repeat(5) { index ->
+                            val bookColor = if (index % 2 == 0) Color(0xFF7B5EA8) else Color(0xFFE8C46F)
+                            drawRect(bookColor, topLeft = Offset(houseX + (3.0f + index * 0.5f) * u, houseY + houseHeight - 1.35f * u), size = Size(0.28f * u, 1.0f * u))
+                        }
+                        drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth - 1.7f * u, houseY - 2.8f * u), size = Size(0.55f * u, 0.55f * u))
+                    }
+                    HouseSpecialUnlocks.CelestialTheme -> {
+                        drawCircle(Color(0xFFA7D9DD).copy(alpha = 0.62f), radius = 0.9f * u, center = Offset(houseX + houseWidth * 0.5f, houseY - 2.7f * u), style = Stroke(width = 0.18f * u))
+                        repeat(4) { index ->
+                            drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + (1.8f + index * 1.55f) * u, houseY + (0.6f + index % 2 * 1.2f) * u), size = Size(0.22f * u, 0.22f * u))
+                        }
+                    }
+                    HouseSpecialUnlocks.GrandEstateTheme -> {
+                        repeat(3) { index ->
+                            drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + (2.9f + index * 1.1f) * u, houseY + houseHeight - 1.7f * u), size = Size(0.32f * u, 1.45f * u))
+                        }
+                        drawRect(Color(0xFFFFD96A), topLeft = Offset(houseX - 0.25f * u, houseY - 2.65f * u), size = Size(houseWidth + 0.5f * u, 0.35f * u))
+                    }
                 }
                 if (isNight) {
                     repeat(7) { index ->
@@ -516,6 +626,14 @@ private data class FenceConnections(
     val up: Boolean = false,
     val down: Boolean = false
 )
+
+private fun houseThemeName(themeId: String): String =
+    when (themeId) {
+        HouseSpecialUnlocks.DreamLibraryTheme -> "Dream Library Theme"
+        HouseSpecialUnlocks.CelestialTheme -> "Celestial Theme"
+        HouseSpecialUnlocks.GrandEstateTheme -> "Grand Estate Theme"
+        else -> themeId.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    }
 
 private fun String.hasGardenAny(vararg needles: String): Boolean = needles.any { contains(it) }
 

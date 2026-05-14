@@ -143,6 +143,7 @@ data class HouseState(
     val unlockedRooms: List<HouseRoom> = HouseRooms.defaultUnlockedRooms,
     val specialUnlocks: List<String> = emptyList(),
     val unlockedThemes: List<String> = emptyList(),
+    val disabledThemes: List<String> = emptyList(),
     val objects: List<HouseObject> = emptyList()
 ) {
     val title: String

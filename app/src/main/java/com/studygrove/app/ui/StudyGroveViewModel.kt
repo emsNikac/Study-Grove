@@ -225,6 +225,14 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun setHouseThemeEnabled(themeId: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val result = repository.setHouseThemeEnabled(themeId, enabled)
+            _message.value = result.message
+            soundEngine.click(repository.current().settings.soundEnabled)
+        }
+    }
+
     fun setSoundEnabled(enabled: Boolean) {
         viewModelScope.launch {
             repository.updateSettings { data ->
