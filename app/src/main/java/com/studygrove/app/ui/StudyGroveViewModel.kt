@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -54,11 +55,13 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     private val _selectedHouseItemId = MutableStateFlow<String?>(null)
     val selectedHouseItemId: StateFlow<String?> = _selectedHouseItemId.asStateFlow()
 
+    private val appVisible = MutableStateFlow(false)
+
     init {
         viewModelScope.launch {
-            gameData.collectLatest { data ->
+            combine(gameData, appVisible) { data, visible -> data to visible }.collectLatest { (data, visible) ->
                 soundEngine.updateMusic(
-                    enabled = data.settings.soundEnabled,
+                    enabled = data.settings.soundEnabled && visible,
                     themeSong = data.settings.themeSong,
                     timerActive = data.activeTimer != null
                 )
@@ -82,6 +85,10 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
                 delay(1_000)
             }
         }
+    }
+
+    fun setAppVisible(visible: Boolean) {
+        appVisible.value = visible
     }
 
     fun navigate(screen: StudyGroveScreen) {
