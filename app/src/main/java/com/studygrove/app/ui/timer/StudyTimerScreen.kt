@@ -120,12 +120,14 @@ private fun ActiveTimerCard(
             FocusAnimation(active = !timer.isPaused)
             Text(
                 if (timer.isPaused) "Paused" else timer.preset.label,
+                color = GroveInk,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 20.sp
             )
             Text(
                 formatTimer(remaining),
+                color = GroveInk,
                 fontWeight = FontWeight.Black,
                 fontSize = 54.sp,
                 fontFamily = FontFamily.Monospace,

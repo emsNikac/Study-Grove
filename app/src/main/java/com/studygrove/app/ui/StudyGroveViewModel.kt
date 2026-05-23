@@ -64,8 +64,11 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
     init {
         viewModelScope.launch {
             val minimumSplash = launch { delay(1_100) }
-            repository.gameData.first()
+            val loadedData = repository.gameData.first()
             minimumSplash.join()
+            if (loadedData.activeTimer != null) {
+                _screen.value = StudyGroveScreen.TIMER
+            }
             _gameStateLoaded.value = true
         }
         viewModelScope.launch {
@@ -112,6 +115,7 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             val timer = repository.startTimer(preset, customMinutes)
             val data = repository.current()
             if (timer != null) {
+                _screen.value = StudyGroveScreen.TIMER
                 notificationScheduler.scheduleTimerComplete(
                     triggerAtMillis = FocusTimerEngine.finishEpochMillis(timer, System.currentTimeMillis()),
                     enabled = data.settings.notificationsEnabled,
