@@ -38,7 +38,6 @@ class SoundEngine(private val context: Context) {
     }
 
     fun click(enabled: Boolean) {
-        // No dedicated click asset exists yet, so generic UI taps stay silent.
     }
 
     fun planting(enabled: Boolean) {
@@ -62,7 +61,6 @@ class SoundEngine(private val context: Context) {
     }
 
     fun reward(enabled: Boolean) {
-        // Purchase reward sounds can be added later without reusing placement audio.
     }
 
     private fun playOneShot(assetName: String) {

@@ -149,8 +149,6 @@ class NotificationScheduler(private val context: Context) {
             }
         }
 
-        // Some Android 12+ builds reject exact alarms unless the user grants special
-        // access. Falling back to an inexact wakeup keeps the timer from crashing.
         alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, timerIntent)
     }
 

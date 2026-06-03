@@ -131,8 +131,6 @@ class StudyGroveRepository(
         var reward: StudyReward? = null
         localDataSource.update { data ->
             val timer = data.activeTimer ?: return@update data
-            // Completed timers are the only full reward path. This keeps the loop motivating
-            // without punishing cancelled sessions or requiring online checks.
             val today = todayString(nowMillis, zoneId)
             val yesterday = yesterdayString(nowMillis, zoneId)
             val newStreak = RewardCalculator.nextStreak(
@@ -281,8 +279,6 @@ class StudyGroveRepository(
                     } else {
                         0
                     }
-                    // Seeds become crop objects with a session counter; every completed study
-                    // session advances those counters through GardenGrowthEngine.
                     val newObject = GardenObject(
                         id = "garden_${item.id}_$nowMillis",
                         shopItemId = item.id,

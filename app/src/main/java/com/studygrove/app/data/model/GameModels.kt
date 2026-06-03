@@ -197,7 +197,6 @@ object HouseRooms {
         return HouseRoomSpec(room = room, width = size.columns, height = size.rows)
     }
 
-    // Kept for old call sites; house level no longer affects room dimensions.
     fun spec(room: HouseRoom, level: Int): HouseRoomSpec {
         return spec(room)
     }

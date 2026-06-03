@@ -26,8 +26,6 @@ class StudyGroveLocalDataSource(private val context: Context) {
         ignoreUnknownKeys = true
     }
 
-    // The MVP persists the full offline save file as one version-tolerant JSON blob.
-    // Decoding always falls back to a normalized default so a corrupted save never blocks launch.
     val gameData: Flow<GameData> = context.studyGroveDataStore.data
         .catch { throwable ->
             if (throwable is IOException || throwable is SerializationException) {
