@@ -1,5 +1,6 @@
 package com.studygrove.app.ui.garden
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -22,7 +23,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -36,23 +36,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.studygrove.app.data.model.GameData
-import com.studygrove.app.data.model.GardenObject
 import com.studygrove.app.data.model.GardenObjectFootprints
 import com.studygrove.app.data.model.GardenObjectType
 import com.studygrove.app.data.model.HouseSpecialUnlocks
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.ui.StudyGroveScreen
+import com.studygrove.app.ui.components.MapTileGrid
+import com.studygrove.app.ui.components.GardenArt
+import com.studygrove.app.ui.components.PixelSheet
+import com.studygrove.app.ui.components.PixelTile
+import com.studygrove.app.ui.components.connectionMask
+import com.studygrove.app.ui.components.drawPixelFrame
+import com.studygrove.app.ui.components.rememberSheet
 import com.studygrove.app.ui.components.GardenObjectSprite
 import com.studygrove.app.ui.inventory.GardenInventoryPanel
 import com.studygrove.app.ui.components.PixelButton
@@ -65,7 +70,6 @@ import com.studygrove.app.ui.theme.GroveBerry
 import com.studygrove.app.ui.theme.GroveClay
 import com.studygrove.app.ui.theme.GroveCream
 import com.studygrove.app.ui.theme.GroveInk
-import com.studygrove.app.ui.theme.GroveLeaf
 import com.studygrove.app.ui.theme.GroveMoss
 import com.studygrove.app.ui.theme.GroveNight
 import com.studygrove.app.ui.theme.GroveSky
@@ -128,7 +132,7 @@ fun GardenScreen(
                 PixelButton("Garden bag", color = GroveMoss, onClick = { showGardenInventory = true })
             }
         }
-        GardenGrid(gameData = gameData, onTileTapped = onTileTapped)
+        GardenGrid(gameData, selectedItemId != null, isNight, onTileTapped)
         SectionTitle("Daily quests")
         QuestList(gameData.dailyQuests.quests)
         SectionTitle("Grove paths")
@@ -244,159 +248,82 @@ private fun GardenHeader(gameData: GameData, isNight: Boolean, visualTheme: Stri
         HouseSpecialUnlocks.DreamLibraryTheme in enabledHouseThemes -> HouseSpecialUnlocks.DreamLibraryTheme
         else -> null
     }
-    val transition = rememberInfiniteTransition(label = "clouds")
-    val drift by transition.animateFloat(
-        initialValue = -40f,
-        targetValue = 40f,
-        animationSpec = infiniteRepeatable(tween(9000), RepeatMode.Reverse),
-        label = "drift"
-    )
-    val skyColor = when (visualTheme) {
-        "morning" -> Color(0xFFFFCFA0)
-        "weather" -> Color(0xFF8FA5AD)
-        "seasonal" -> Color(0xFFFFD6A0)
-        "observatory" -> Color(0xFF4A4D7E)
-        else -> if (isNight) GroveNight else GroveSky
+    val themeRow = when (activeHouseTheme) {
+        HouseSpecialUnlocks.DreamLibraryTheme -> 1
+        HouseSpecialUnlocks.CelestialTheme -> 2
+        HouseSpecialUnlocks.GrandEstateTheme -> 3
+        else -> 0
     }
-    PixelPanel(color = skyColor) {
+    val sceneryFrame = when (visualTheme) {
+        "morning" -> 1
+        "weather" -> 3
+        "seasonal" -> 4
+        "observatory" -> 5
+        else -> if (isNight) 2 else 0
+    }
+    val cottages = if (isNight) PixelSheet.NightCottages else PixelSheet.Cottages
+    val house = rememberSheet(cottages)
+    val scenery = rememberSheet(PixelSheet.Scenery)
+    val motion = rememberInfiniteTransition(label = "sky")
+    val drift by motion.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(12000), RepeatMode.Reverse),
+        label = "sky_drift"
+    )
+    PixelPanel(color = if (isNight) GroveNight else GroveSky) {
         Box(modifier = Modifier.fillMaxWidth().height(148.dp)) {
             Canvas(Modifier.matchParentSize()) {
-                val skyAccent = if (isNight) Color(0xFFFFE6A8) else Color(0xFFFFC94A)
-                val u = size.width / 18f
-                drawRect(skyAccent, topLeft = Offset(size.width - 4 * u, 1.2f * u), size = Size(2.4f * u, 2.4f * u))
-                drawRect(Color.White.copy(alpha = if (isNight) 0.25f else 0.9f), topLeft = Offset(1.5f * u + drift, 2.3f * u), size = Size(4 * u, u))
-                drawRect(Color.White.copy(alpha = if (isNight) 0.18f else 0.75f), topLeft = Offset(7.5f * u - drift, 3.1f * u), size = Size(3 * u, u))
-                val ground = if (visualTheme == "seasonal") Color(0xFFC98B5A) else Color(0xFF7AA558)
-                drawRect(ground, topLeft = Offset(0f, size.height - 28f), size = Size(size.width, 28f))
-                val houseLevel = gameData.house.level.coerceIn(1, 8)
-                val houseWidth = (3.8f + houseLevel * 0.9f) * u
-                val houseHeight = 36f + houseLevel * 5f
-                val houseX = 2.7f * u
-                val houseY = size.height - 28f - houseHeight
-                val baseWall = when (houseLevel) {
-                    1 -> GroveClay
-                    2 -> Color(0xFFD48655)
-                    3 -> Color(0xFFB96E4A)
-                    4 -> Color(0xFFC77A58)
-                    5 -> Color(0xFFD19864)
-                    6 -> Color(0xFFC89D74)
-                    7 -> Color(0xFFB98A78)
-                    else -> Color(0xFFD9B16F)
+                val width = size.width
+                val height = size.height
+                drawPixelFrame(scenery, PixelSheet.Scenery, sceneryFrame)
+                val pixel = minOf(width / 224f, height / 95f)
+                if (isNight && sceneryFrame != 2 && sceneryFrame != 5) {
+                    drawRect(Color(0x553C476B))
                 }
-                val baseRoof = when (houseLevel) {
-                    1 -> Color(0xFF8D4C3B)
-                    2 -> Color(0xFF7F483A)
-                    3 -> Color(0xFF5E5A45)
-                    4 -> Color(0xFF6B4052)
-                    5 -> Color(0xFF4F5C74)
-                    6 -> Color(0xFF4B4D63)
-                    7 -> Color(0xFF35465D)
-                    else -> Color(0xFF3D355E)
-                }
-                val wall = when (activeHouseTheme) {
-                    HouseSpecialUnlocks.DreamLibraryTheme -> Color(0xFFC79B6A)
-                    HouseSpecialUnlocks.CelestialTheme -> Color(0xFF6B6FA0)
-                    HouseSpecialUnlocks.GrandEstateTheme -> Color(0xFFE0B96B)
-                    else -> baseWall
-                }
-                val roof = when (activeHouseTheme) {
-                    HouseSpecialUnlocks.DreamLibraryTheme -> Color(0xFF5C4A72)
-                    HouseSpecialUnlocks.CelestialTheme -> Color(0xFF303965)
-                    HouseSpecialUnlocks.GrandEstateTheme -> Color(0xFF4C3658)
-                    else -> baseRoof
-                }
-                drawRect(GroveInk.copy(alpha = 0.18f), topLeft = Offset(houseX + 0.4f * u, size.height - 30f), size = Size(houseWidth, 5f))
-                drawRect(wall.copy(alpha = 0.65f), topLeft = Offset(houseX + 0.8f * u, houseY + 0.5f * u), size = Size(houseWidth, houseHeight))
-                drawRect(wall, topLeft = Offset(houseX, houseY), size = Size(houseWidth, houseHeight))
-                drawRect(roof, topLeft = Offset(houseX - 0.8f * u, houseY - 1.25f * u), size = Size(houseWidth + 1.6f * u, 1.55f * u))
-                drawRect(roof.copy(alpha = 0.82f), topLeft = Offset(houseX - 0.2f * u, houseY - 2.1f * u), size = Size(houseWidth - 0.2f * u, 1.05f * u))
-                drawRect(GroveCream, topLeft = Offset(houseX + 1.6f * u, houseY + houseHeight - 28f), size = Size(1.05f * u, 28f))
-                drawRect(GroveInk.copy(alpha = 0.35f), topLeft = Offset(houseX + 2.35f * u, houseY + houseHeight - 16f), size = Size(0.35f * u, 0.35f * u))
-                drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth - 1.55f * u, houseY + 1.25f * u), size = Size(0.95f * u, 0.95f * u))
-                if (houseLevel >= 2) {
-                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth - 3.1f * u, houseY + 1.25f * u), size = Size(0.95f * u, 0.95f * u))
-                    drawRect(Color(0xFF6B3D32), topLeft = Offset(houseX + houseWidth - 1.25f * u, houseY - 2.9f * u), size = Size(0.65f * u, 1.4f * u))
-                }
-                if (houseLevel >= 3) {
-                    drawRect(wall.copy(alpha = 0.9f), topLeft = Offset(houseX + houseWidth - 0.1f * u, houseY + 0.55f * u), size = Size(1.7f * u, houseHeight - 6f))
-                    drawRect(roof.copy(alpha = 0.85f), topLeft = Offset(houseX + houseWidth - 0.5f * u, houseY - 0.6f * u), size = Size(2.5f * u, 1.2f * u))
-                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth + 0.45f * u, houseY + 1.9f * u), size = Size(0.7f * u, 0.7f * u))
-                }
-                if (houseLevel >= 4) {
-                    drawRect(wall.copy(alpha = 0.95f), topLeft = Offset(houseX + 2.95f * u, houseY - 1.9f * u), size = Size(2.2f * u, 2.5f * u))
-                    drawRect(roof, topLeft = Offset(houseX + 2.55f * u, houseY - 2.7f * u), size = Size(3f * u, 0.85f * u))
-                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + 3.6f * u, houseY - 1.2f * u), size = Size(0.75f * u, 0.75f * u))
-                }
-                if (houseLevel >= 5) {
-                    repeat(4) { index ->
-                        drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + (3.2f + index * 0.75f) * u, houseY + houseHeight - 1.35f * u), size = Size(0.42f * u, 0.95f * u))
+                // The cottage sits on the near bank of the lane across phone and tablet widths.
+                drawPixelFrame(
+                    house, cottages, themeRow * 8 + gameData.house.level.coerceIn(1, 8) - 1,
+                    offset = IntOffset((width * 0.04f).roundToInt(), (height * 0.80f - 68 * pixel).roundToInt()),
+                    destination = IntSize((112 * pixel).roundToInt(), (80 * pixel).roundToInt())
+                )
+                when (visualTheme) {
+                    "weather" -> repeat(16) { i ->
+                        val y = ((i * 0.19f + drift * 4) % 1f) * height
+                        drawRect(Color(0xA4D2E4E4), Offset((i * 0.281f % 1f) * width, y), Size(pixel, 3 * pixel))
                     }
-                    drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth - 2.3f * u, houseY + houseHeight - 2.1f * u), size = Size(1.35f * u, 0.7f * u))
-                }
-                if (houseLevel >= 6) {
-                    drawRect(wall.copy(alpha = 0.95f), topLeft = Offset(houseX + houseWidth - 1.9f * u, houseY - 2.8f * u), size = Size(1.7f * u, 3.3f * u))
-                    drawRect(roof, topLeft = Offset(houseX + houseWidth - 2.25f * u, houseY - 3.5f * u), size = Size(2.4f * u, 0.85f * u))
-                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + houseWidth - 1.35f * u, houseY - 1.7f * u), size = Size(0.55f * u, 0.55f * u))
-                }
-                if (houseLevel >= 7) {
-                    drawRect(roof.copy(alpha = 0.86f), topLeft = Offset(houseX + 0.3f * u, houseY - 3.65f * u), size = Size(2.4f * u, 1.1f * u))
-                    drawRect(wall.copy(alpha = 0.93f), topLeft = Offset(houseX + 0.65f * u, houseY - 2.75f * u), size = Size(1.65f * u, 3.1f * u))
-                    drawRect(Color(0xFFFFE08A), topLeft = Offset(houseX + 1.15f * u, houseY - 1.5f * u), size = Size(0.55f * u, 0.55f * u))
-                }
-                if (houseLevel >= 8) {
-                    drawRect(Color(0xFFFFD96A), topLeft = Offset(houseX + houseWidth * 0.47f, houseY - 3.85f * u), size = Size(0.9f * u, 0.9f * u))
-                    drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth * 0.47f + 0.2f * u, houseY - 3.65f * u), size = Size(0.5f * u, 0.5f * u))
-                }
-                when (activeHouseTheme) {
-                    HouseSpecialUnlocks.DreamLibraryTheme -> {
-                        repeat(5) { index ->
-                            val bookColor = if (index % 2 == 0) Color(0xFF7B5EA8) else Color(0xFFE8C46F)
-                            drawRect(bookColor, topLeft = Offset(houseX + (3.0f + index * 0.5f) * u, houseY + houseHeight - 1.35f * u), size = Size(0.28f * u, 1.0f * u))
-                        }
-                        drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + houseWidth - 1.7f * u, houseY - 2.8f * u), size = Size(0.55f * u, 0.55f * u))
+                    "cozy_lights", "golden_greenhouse" -> repeat(12) { i ->
+                        val x = (i * 0.281f % 1f) * width
+                        val y = height * (0.72f + (i % 3) * 0.07f) - (drift * 3).toInt() * pixel
+                        drawRect(Color(0xFFF9DF94), Offset(x, y), Size(pixel, pixel))
                     }
-                    HouseSpecialUnlocks.CelestialTheme -> {
-                        drawCircle(Color(0xFFA7D9DD).copy(alpha = 0.62f), radius = 0.9f * u, center = Offset(houseX + houseWidth * 0.5f, houseY - 2.7f * u), style = Stroke(width = 0.18f * u))
-                        repeat(4) { index ->
-                            drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + (1.8f + index * 1.55f) * u, houseY + (0.6f + index % 2 * 1.2f) * u), size = Size(0.22f * u, 0.22f * u))
-                        }
-                    }
-                    HouseSpecialUnlocks.GrandEstateTheme -> {
-                        repeat(3) { index ->
-                            drawRect(Color(0xFFFFF4C0), topLeft = Offset(houseX + (2.9f + index * 1.1f) * u, houseY + houseHeight - 1.7f * u), size = Size(0.32f * u, 1.45f * u))
-                        }
-                        drawRect(Color(0xFFFFD96A), topLeft = Offset(houseX - 0.25f * u, houseY - 2.65f * u), size = Size(houseWidth + 0.5f * u, 0.35f * u))
-                    }
-                }
-                if (isNight) {
-                    repeat(7) { index ->
-                        drawRect(Color(0xFFFFF4BD), topLeft = Offset((index * 2 + 1) * u, (index % 3 + 1) * u), size = Size(4f, 4f))
-                    }
-                }
-                if (visualTheme == "weather") {
-                    repeat(12) { index ->
-                        drawRect(Color(0xFFDAEEF0).copy(alpha = 0.75f), topLeft = Offset((index * 1.6f + 0.5f) * u, ((index % 4) + 1.2f) * u), size = Size(0.18f * u, 1.1f * u))
-                    }
-                }
-                if (visualTheme == "cozy_lights" || visualTheme == "golden_greenhouse") {
-                    repeat(5) { index ->
-                        drawRect(Color(0xFFFFE08A), topLeft = Offset((1.5f + index * 2.7f) * u, size.height - 22f), size = Size(0.45f * u, 0.45f * u))
+                    else -> {
+                        val x = width * 0.29f + (drift * 12).toInt() * pixel
+                        val tint = Color.White.copy(alpha = if (isNight) 0.16f else 0.42f)
+                        drawRect(tint, Offset(x, height * 0.15f), Size(18 * pixel, 2 * pixel))
+                        drawRect(tint, Offset(x + 4 * pixel, height * 0.15f - 2 * pixel), Size(9 * pixel, 2 * pixel))
                     }
                 }
             }
             Column(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                    .background(Color(0xD9384943)).padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                Text("Study Grove", fontSize = 26.sp, fontWeight = FontWeight.Black, color = if (isNight) GroveCream else GroveInk)
-                Text(gameData.house.title, fontSize = 13.sp, color = if (isNight) GroveCream.copy(alpha = 0.8f) else GroveInk.copy(alpha = 0.72f))
+                Text("Study Grove", fontSize = 26.sp, fontWeight = FontWeight.Black, color = GroveCream)
+                Text(gameData.house.title, fontSize = 13.sp, color = GroveCream.copy(alpha = 0.86f))
             }
         }
     }
 }
 
 @Composable
-private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
+private fun GardenGrid(
+    gameData: GameData,
+    placing: Boolean,
+    isNight: Boolean,
+    onTileTapped: (Int, Int) -> Unit
+) {
     val haptic = LocalHapticFeedback.current
     val objectsByTile = remember(gameData.garden.objects) {
         buildMap {
@@ -408,13 +335,19 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
             }
         }
     }
-    val animatedGarden = rememberInfiniteTransition(label = "garden_objects")
-    val animationPhase by animatedGarden.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Restart),
-        label = "garden_object_phase"
-    )
+    val hasAnimation = remember(gameData.garden.objects) {
+        gameData.garden.objects.any { ShopCatalog.byId(it.shopItemId)?.visualKey in GardenArt.animated }
+    }
+    val animationFrame: (() -> Int)? = if (hasAnimation) {
+        val transition = rememberInfiniteTransition(label = "garden")
+        val phase = transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 8f,
+            animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
+            label = "garden_frame"
+        )
+        remember(phase) { { phase.value.toInt().coerceIn(0, 7) } }
+    } else null
     val overlayObjects = remember(gameData.garden.objects) {
         gameData.garden.objects.filter { gardenObject ->
             val item = ShopCatalog.byId(gardenObject.shopItemId)
@@ -424,32 +357,37 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
     ZoomableMapViewport(
         gridWidth = gameData.garden.width,
         gridHeight = gameData.garden.height,
-        panelColor = Color(0xFF9FCB72),
+        panelColor = Color(0xFF91AA67),
         maxScale = 4f
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val tileSize = maxWidth / gameData.garden.width
+            val tiles = MapTileGrid(
+                constraints.maxWidth, constraints.maxHeight, gameData.garden.width, gameData.garden.height, LocalDensity.current
+            )
             Column(modifier = Modifier.fillMaxWidth()) {
                 repeat(gameData.garden.height) { y ->
                     Row {
                         repeat(gameData.garden.width) { x ->
                             val obj = objectsByTile[x to y]
-                            GardenTileBox(
-                                modifier = Modifier.size(tileSize),
-                                objectOnTile = obj,
-                                fenceConnections = FenceConnections(
-                                    left = objectsByTile[(x - 1) to y]?.type == GardenObjectType.FENCE,
-                                    right = objectsByTile[(x + 1) to y]?.type == GardenObjectType.FENCE,
-                                    up = objectsByTile[x to (y - 1)]?.type == GardenObjectType.FENCE,
-                                    down = objectsByTile[x to (y + 1)]?.type == GardenObjectType.FENCE
-                                ),
-                                clover = (x + y) % 5 == 0,
-                                animationPhase = animationPhase,
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onTileTapped(x, y)
+                            Box(Modifier.size(tiles.size(x, y)).clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onTileTapped(x, y)
+                            }) {
+                                val grass = (x * 7 + y * 11 + x * y * 3) % 16
+                                PixelTile(PixelSheet.Grass, grass, Modifier.matchParentSize())
+                                if (obj != null && !GardenObjectFootprints.isLarge(ShopCatalog.byId(obj.shopItemId))) {
+                                    // The four bits select the matching rails at each cell edge.
+                                    val mask = if (obj.type == GardenObjectType.FENCE) {
+                                        connectionMask(x, y) { nx, ny ->
+                                            objectsByTile[nx to ny]?.type == GardenObjectType.FENCE
+                                        }
+                                    } else 0
+                                    GardenObjectSprite(obj, Modifier.matchParentSize(), mask, animationFrame)
                                 }
-                            )
+                                if (placing) {
+                                    Box(Modifier.matchParentSize().border(0.5.dp, GroveInk.copy(alpha = 0.30f)))
+                                }
+                            }
                         }
                     }
                 }
@@ -457,20 +395,12 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
             overlayObjects.forEach { gardenObject ->
                 val item = ShopCatalog.byId(gardenObject.shopItemId)
                 val footprint = GardenObjectFootprints.sizeFor(item)
-                GardenObjectLayer(
+                GardenObjectSprite(
                     gardenObject = gardenObject,
-                    animationPhase = animationPhase,
+                    animationFrame = animationFrame,
                     modifier = Modifier
-                        .size(
-                            width = tileSize * footprint.width.toFloat(),
-                            height = tileSize * footprint.height.toFloat()
-                        )
-                        .offset {
-                            IntOffset(
-                                x = (gardenObject.x * tileSize.toPx()).roundToInt(),
-                                y = (gardenObject.y * tileSize.toPx()).roundToInt()
-                            )
-                        }
+                        .offset { tiles.offset(gardenObject.x, gardenObject.y) }
+                        .size(tiles.size(gardenObject.x, gardenObject.y, footprint.width, footprint.height))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onTileTapped(gardenObject.x, gardenObject.y)
@@ -478,154 +408,15 @@ private fun GardenGrid(gameData: GameData, onTileTapped: (Int, Int) -> Unit) {
                         .padding(2.dp)
                 )
             }
+            val tint = when {
+                isNight -> Color(0x39323C68)
+                gameData.upgrades.visualTheme == "seasonal" -> Color(0x20CC8838)
+                else -> Color.Transparent
+            }
+            if (tint != Color.Transparent) Box(Modifier.matchParentSize().background(tint))
         }
     }
 }
-
-@Composable
-private fun GardenTileBox(
-    modifier: Modifier,
-    objectOnTile: GardenObject?,
-    fenceConnections: FenceConnections,
-    clover: Boolean,
-    animationPhase: Float,
-    onClick: () -> Unit
-) {
-    val base = if (clover) Color(0xFF8DC76A) else Color(0xFF7EB95A)
-    val item = objectOnTile?.let { ShopCatalog.byId(it.shopItemId) }
-    val objectType = objectOnTile?.type
-    val visualKey = item?.visualKey.orEmpty()
-    val isLargeObject = GardenObjectFootprints.isLarge(item)
-    val usesSpriteOnSurface = objectType == GardenObjectType.WATER && visualKey.contains("waterfall")
-    val isSurfaceObject = objectType == GardenObjectType.PATH ||
-        (objectType == GardenObjectType.WATER && !usesSpriteOnSurface) ||
-        objectType == GardenObjectType.FENCE
-    Box(
-        modifier = modifier
-            .background(base)
-            .border(0.5.dp, GroveMoss.copy(alpha = 0.45f))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.matchParentSize()) {
-            when (objectType) {
-                GardenObjectType.PATH -> drawGardenPathTile(visualKey)
-                GardenObjectType.WATER -> if (!isLargeObject && !usesSpriteOnSurface) drawGardenPondTile()
-                GardenObjectType.FENCE -> drawGardenFenceTile(visualKey, fenceConnections)
-                else -> if (clover && objectOnTile == null) {
-                    val u = size.minDimension / 10f
-                    drawRect(GroveLeaf.copy(alpha = 0.55f), topLeft = Offset(4.5f * u, 2.4f * u), size = Size(u, 5.2f * u))
-                    drawRect(GroveMoss.copy(alpha = 0.45f), topLeft = Offset(3.6f * u, 3.2f * u), size = Size(2.8f * u, u))
-                }
-            }
-        }
-        if (!isSurfaceObject && !isLargeObject) {
-            objectOnTile?.let {
-                GardenObjectLayer(it, animationPhase = animationPhase, modifier = Modifier.matchParentSize().padding(2.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun GardenObjectLayer(
-    gardenObject: GardenObject,
-    animationPhase: Float,
-    modifier: Modifier = Modifier
-) {
-    val item = ShopCatalog.byId(gardenObject.shopItemId)
-    val visualKey = item?.visualKey.orEmpty()
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        GardenObjectSprite(gardenObject, Modifier.matchParentSize())
-        if (isAnimatedGardenItem(visualKey)) {
-            Canvas(Modifier.matchParentSize()) {
-                drawGardenObjectAnimation(visualKey, animationPhase)
-            }
-        }
-    }
-}
-
-private fun isAnimatedGardenItem(visualKey: String): Boolean =
-    visualKey.contains("tiny_windmill") ||
-        visualKey.contains("knowledge_fountain") ||
-        visualKey.contains("celestial_portal") ||
-        visualKey.contains("mini_waterfall") ||
-        visualKey == "lamp" ||
-        visualKey.contains("lamp_post")
-
-private fun DrawScope.drawGardenObjectAnimation(visualKey: String, phase: Float) {
-    val u = size.minDimension / 10f
-    when {
-        visualKey.contains("tiny_windmill") -> {
-            val pivot = Offset(5f * u, 3.1f * u)
-            rotate(degrees = phase * 360f, pivot = pivot) {
-                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x - 0.25f * u, pivot.y - 2.3f * u), size = Size(0.5f * u, 2.1f * u))
-                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x - 0.25f * u, pivot.y + 0.2f * u), size = Size(0.5f * u, 2.1f * u))
-                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x - 2.3f * u, pivot.y - 0.25f * u), size = Size(2.1f * u, 0.5f * u))
-                drawRect(Color(0xFFFFF2D1), topLeft = Offset(pivot.x + 0.2f * u, pivot.y - 0.25f * u), size = Size(2.1f * u, 0.5f * u))
-                drawRect(Color(0xFFBDE7E7), topLeft = Offset(pivot.x - 0.18f * u, pivot.y - 1.8f * u), size = Size(0.36f * u, 1.3f * u))
-                drawRect(Color(0xFFBDE7E7), topLeft = Offset(pivot.x + 0.5f * u, pivot.y - 0.18f * u), size = Size(1.3f * u, 0.36f * u))
-            }
-            drawRect(Color(0xFFFFD96A), topLeft = Offset(4.55f * u, 2.65f * u), size = Size(0.9f * u, 0.9f * u))
-        }
-        visualKey.contains("knowledge_fountain") -> {
-            repeat(3) { index ->
-                val x = (4.1f + index * 0.9f) * u
-                val fall = ((phase + index * 0.22f) % 1f)
-                drawRect(
-                    Color(0xFFBDE7E7).copy(alpha = 0.75f),
-                    topLeft = Offset(x, (2.0f + fall * 2.2f) * u),
-                    size = Size(0.32f * u, 1.15f * u)
-                )
-            }
-            val ripple = 1.8f + phase * 1.5f
-            drawCircle(
-                Color(0xFFE7FFFF).copy(alpha = 0.42f * (1f - phase)),
-                radius = ripple * u,
-                center = Offset(5f * u, 6.15f * u),
-                style = Stroke(width = 0.25f * u)
-            )
-        }
-        visualKey.contains("celestial_portal") -> {
-            val glow = 0.28f + 0.18f * if (phase < 0.5f) phase * 2f else (1f - phase) * 2f
-            drawCircle(
-                Color(0xFFBDE7E7).copy(alpha = glow),
-                radius = 3.0f * u,
-                center = Offset(5f * u, 4.9f * u),
-                style = Stroke(width = 0.45f * u)
-            )
-            repeat(4) { index ->
-                val sparklePhase = (phase + index * 0.25f) % 1f
-                val x = (2.5f + index * 1.65f) * u
-                val y = (2.3f + if (index % 2 == 0) sparklePhase else 1f - sparklePhase) * u
-                drawRect(Color(0xFFFFF4C0), topLeft = Offset(x, y), size = Size(0.42f * u, 0.42f * u))
-            }
-        }
-        visualKey.contains("mini_waterfall") -> {
-            repeat(4) { index ->
-                val stream = ((phase + index * 0.18f) % 1f)
-                drawRect(
-                    Color(0xFFE7FFFF).copy(alpha = 0.82f),
-                    topLeft = Offset((3.3f + index * 0.8f) * u, (2.0f + stream * 3.9f) * u),
-                    size = Size(0.36f * u, 1.4f * u)
-                )
-            }
-            drawRect(Color(0xFFBDE7E7).copy(alpha = 0.62f), topLeft = Offset(2.8f * u, 6.2f * u), size = Size(4.5f * u, 0.55f * u))
-        }
-        visualKey == "lamp" || visualKey.contains("lamp_post") -> {
-            val glow = 0.22f + 0.16f * if (phase < 0.5f) phase * 2f else (1f - phase) * 2f
-            drawCircle(Color(0xFFFFD96A).copy(alpha = glow), radius = 3.2f * u, center = Offset(5f * u, 3.6f * u))
-            drawRect(Color(0xFFFFF4C0), topLeft = Offset(4.45f * u, 2.6f * u), size = Size(1.1f * u, 1.1f * u))
-        }
-    }
-}
-
-private data class FenceConnections(
-    val left: Boolean = false,
-    val right: Boolean = false,
-    val up: Boolean = false,
-    val down: Boolean = false
-)
 
 private fun houseThemeName(themeId: String): String =
     when (themeId) {
@@ -634,151 +425,3 @@ private fun houseThemeName(themeId: String): String =
         HouseSpecialUnlocks.GrandEstateTheme -> "Grand Estate Theme"
         else -> themeId.replace('_', ' ').replaceFirstChar { it.uppercase() }
     }
-
-private fun String.hasGardenAny(vararg needles: String): Boolean = needles.any { contains(it) }
-
-private fun Color.gardenShade(amount: Float): Color =
-    Color(
-        red = (red * amount).coerceIn(0f, 1f),
-        green = (green * amount).coerceIn(0f, 1f),
-        blue = (blue * amount).coerceIn(0f, 1f),
-        alpha = alpha
-    )
-
-private fun Color.gardenLight(amount: Float): Color =
-    Color(
-        red = (red + (1f - red) * amount).coerceIn(0f, 1f),
-        green = (green + (1f - green) * amount).coerceIn(0f, 1f),
-        blue = (blue + (1f - blue) * amount).coerceIn(0f, 1f),
-        alpha = alpha
-    )
-
-private fun gardenPathColor(key: String): Color = when {
-    key.contains("dirt") -> Color(0xFF9B6942)
-    key.contains("grass") || key.contains("leafy") -> Color(0xFF70A95C)
-    key.contains("sand") -> Color(0xFFE2C876)
-    key.contains("snow") || key.contains("cloud") -> Color(0xFFEAF2F0)
-    key.contains("brick") -> Color(0xFFC5654B)
-    key.contains("blue") || key.contains("waterline") -> Color(0xFF5F9CC7)
-    key.contains("rainbow") -> GroveBerry
-    key.contains("carpet") -> Color(0xFF7B5EA8)
-    key.hasGardenAny("star", "gold", "mastery") -> Color(0xFFE1B748)
-    key.hasGardenAny("stone", "pebble", "slate", "marble", "moon", "diamond", "ruin") -> Color(0xFF9EA3A1)
-    key.hasGardenAny("aurora", "planet", "celestial", "eternal") -> Color(0xFF6976A7)
-    key.contains("dark_wood") -> Color(0xFF7A4D31)
-    key.contains("cherry") -> Color(0xFFC27678)
-    else -> Color(0xFFB97948)
-}
-
-private fun gardenFenceColor(key: String): Color = when {
-    key.contains("white") -> Color(0xFFF6EBD0)
-    key.contains("bamboo") -> Color(0xFFD4B95F)
-    key.hasGardenAny("iron", "clockwork") -> Color(0xFF788087)
-    key.hasGardenAny("gold", "royal") -> Color(0xFFDDAA39)
-    key.hasGardenAny("crystal", "celestial", "dream") -> Color(0xFFA7D9DD)
-    key.hasGardenAny("hedge", "ivy", "bonsai") -> Color(0xFF4E8B4E)
-    else -> Color(0xFFC9874D)
-}
-
-private fun DrawScope.drawGardenPathTile(key: String) {
-    val u = size.minDimension / 10f
-    val base = gardenPathColor(key)
-    if (key.hasGardenAny("stone", "pebble", "slate", "marble", "moon", "diamond", "ruin")) {
-        drawRect(base.gardenShade(0.65f), size = size)
-        drawRect(base.gardenLight(0.25f), topLeft = Offset(0.4f * u, 0.5f * u), size = Size(4.2f * u, 3.7f * u))
-        drawRect(base.gardenShade(0.8f), topLeft = Offset(0.4f * u, 3.5f * u), size = Size(4.2f * u, 0.7f * u))
-        drawRect(base.gardenLight(0.18f), topLeft = Offset(5f * u, 0.7f * u), size = Size(4.4f * u, 4f * u))
-        drawRect(base.gardenShade(0.78f), topLeft = Offset(5f * u, 4f * u), size = Size(4.4f * u, 0.7f * u))
-        drawRect(base.gardenLight(0.32f), topLeft = Offset(0.8f * u, 5.3f * u), size = Size(3.5f * u, 3.8f * u))
-        drawRect(base.gardenShade(0.82f), topLeft = Offset(0.8f * u, 8.4f * u), size = Size(3.5f * u, 0.7f * u))
-        drawRect(base.gardenLight(0.2f), topLeft = Offset(4.8f * u, 5.5f * u), size = Size(4.6f * u, 3.6f * u))
-        drawRect(base.gardenShade(0.78f), topLeft = Offset(4.8f * u, 8.3f * u), size = Size(4.6f * u, 0.8f * u))
-    } else {
-        drawRect(base.gardenShade(0.7f), size = size)
-        repeat(4) { row ->
-            val top = row * 2.5f * u
-            val plank = if (row % 2 == 0) base.gardenLight(0.12f) else base
-            drawRect(plank, topLeft = Offset(0f, top), size = Size(size.width, 2.1f * u))
-            drawRect(base.gardenShade(0.58f), topLeft = Offset(0f, top + 1.9f * u), size = Size(size.width, 0.35f * u))
-            drawRect(Color.White.copy(alpha = 0.13f), topLeft = Offset(u, top + 0.4f * u), size = Size(3.5f * u, 0.35f * u))
-        }
-        if (key.hasGardenAny("flower", "leaf", "firefly", "star", "planet", "aurora")) {
-            repeat(3) { index ->
-                val accent = listOf(GroveBerry, Color(0xFFFFE08A), Color(0xFFBDE7E7))[index]
-                drawRect(accent, topLeft = Offset((1.4f + index * 2.3f) * u, (2.1f + index % 2 * 2.1f) * u), size = Size(0.7f * u, 0.7f * u))
-            }
-        }
-        drawRect(base.gardenShade(0.55f).copy(alpha = 0.45f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
-    }
-}
-
-private fun DrawScope.drawGardenPondTile() {
-    val u = size.minDimension / 10f
-    drawRect(Color(0xFF447D6F), size = size)
-    drawRect(Color(0xFF56A7BE), topLeft = Offset(0.8f * u, 0.9f * u), size = Size(8.4f * u, 7.9f * u))
-    drawRect(Color(0xFF357E9C), topLeft = Offset(1.1f * u, 7.4f * u), size = Size(7.8f * u, 1.4f * u))
-    drawRect(Color(0xFF8ED5D6), topLeft = Offset(2f * u, 2.1f * u), size = Size(3.2f * u, 0.7f * u))
-    drawRect(Color(0xFFBDE7E7), topLeft = Offset(5.9f * u, 4.2f * u), size = Size(1.8f * u, 0.55f * u))
-    drawRect(GroveLeaf.copy(alpha = 0.85f), topLeft = Offset(0f, 0f), size = Size(size.width, 0.7f * u))
-    drawRect(GroveMoss.copy(alpha = 0.8f), topLeft = Offset(0f, size.height - 0.8f * u), size = Size(size.width, 0.8f * u))
-    drawRect(GroveMoss.copy(alpha = 0.75f), topLeft = Offset(0f, 0f), size = Size(0.7f * u, size.height))
-    drawRect(GroveLeaf.copy(alpha = 0.75f), topLeft = Offset(size.width - 0.7f * u, 0f), size = Size(0.7f * u, size.height))
-}
-
-private fun DrawScope.drawGardenFenceTile(key: String, connections: FenceConnections) {
-    val u = size.minDimension / 10f
-    val woodTop = gardenFenceColor(key)
-    val woodSide = woodTop.gardenShade(0.72f)
-    val woodDark = woodTop.gardenShade(0.48f)
-    val shadow = GroveInk.copy(alpha = 0.2f)
-
-    drawRect(shadow, topLeft = Offset(1.3f * u, 7.8f * u), size = Size(7.5f * u, 1.1f * u))
-
-    val horizontal = connections.left || connections.right || (!connections.up && !connections.down)
-    val vertical = connections.up || connections.down
-
-    if (horizontal) {
-        val start = if (connections.left) 0f else 1.4f * u
-        val end = if (connections.right) size.width else 8.6f * u
-        val width = end - start
-        if (key.contains("rope")) {
-            drawRect(Color(0xFFD8B06E), topLeft = Offset(start, 4.9f * u), size = Size(width, 0.5f * u))
-            drawRect(Color(0xFFD8B06E), topLeft = Offset(start, 6f * u), size = Size(width, 0.45f * u))
-        } else {
-            drawRect(woodSide, topLeft = Offset(start, 5.4f * u), size = Size(width, 1.35f * u))
-            drawRect(woodTop, topLeft = Offset(start, 4.6f * u), size = Size(width, 0.95f * u))
-            drawRect(Color.White.copy(alpha = 0.18f), topLeft = Offset(start, 4.7f * u), size = Size(width, 0.25f * u))
-        }
-    }
-
-    if (vertical) {
-        val start = if (connections.up) 0f else 1.3f * u
-        val end = if (connections.down) size.height else 8.4f * u
-        val height = end - start
-        drawRect(woodDark, topLeft = Offset(5.4f * u, start), size = Size(1.25f * u, height))
-        drawRect(woodSide, topLeft = Offset(4.4f * u, start), size = Size(1.45f * u, height))
-        drawRect(woodTop, topLeft = Offset(3.8f * u, start), size = Size(0.9f * u, height))
-        drawRect(Color.White.copy(alpha = 0.14f), topLeft = Offset(3.9f * u, start), size = Size(0.25f * u, height))
-    }
-
-    fun drawPost(topLeftX: Float, topLeftY: Float) {
-        drawRect(shadow, topLeft = Offset(topLeftX + 0.25f * u, topLeftY + 4.9f * u), size = Size(2.2f * u, 0.8f * u))
-        drawRect(woodDark, topLeft = Offset(topLeftX + 0.55f * u, topLeftY + 0.45f * u), size = Size(1.4f * u, 5.1f * u))
-        drawRect(woodSide, topLeft = Offset(topLeftX, topLeftY), size = Size(1.75f * u, 5.3f * u))
-        drawRect(woodTop, topLeft = Offset(topLeftX - 0.15f * u, topLeftY - 0.5f * u), size = Size(2.05f * u, 0.9f * u))
-        drawRect(Color.White.copy(alpha = 0.16f), topLeft = Offset(topLeftX + 0.18f * u, topLeftY + 0.35f * u), size = Size(0.35f * u, 4.2f * u))
-    }
-
-    if (horizontal) {
-        drawPost(if (connections.left) -0.7f * u else 1.2f * u, 2.1f * u)
-        drawPost(4.15f * u, 1.8f * u)
-        drawPost(if (connections.right) 8.9f * u else 7.1f * u, 2.1f * u)
-    }
-    if (vertical) {
-        drawPost(4.15f * u, if (connections.up) -0.8f * u else 1.0f * u)
-        if (!horizontal) {
-            drawPost(4.15f * u, 4.1f * u)
-        }
-        drawPost(4.15f * u, if (connections.down) 8.2f * u else 6.4f * u)
-    }
-}

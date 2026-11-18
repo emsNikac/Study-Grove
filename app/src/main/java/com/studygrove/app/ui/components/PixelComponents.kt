@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.studygrove.app.data.model.Achievement
-import com.studygrove.app.data.model.CharacterCustomization
 import com.studygrove.app.data.model.CosmeticSlot
 import com.studygrove.app.data.model.DailyQuest
 import com.studygrove.app.data.model.GardenObject
@@ -350,7 +349,7 @@ private fun pathBaseColor(key: String): Color = when {
     else -> Color(0xFFB97948)
 }
 
-private fun clothingColor(key: String?): Color {
+internal fun clothingColor(key: String?): Color {
     val safeKey = key.orEmpty()
     return when {
         safeKey.contains("red") -> Color(0xFFD95757)
@@ -367,9 +366,22 @@ private fun clothingColor(key: String?): Color {
 }
 
 @Composable
-fun GardenObjectSprite(gardenObject: GardenObject, modifier: Modifier = Modifier) {
+fun GardenObjectSprite(
+    gardenObject: GardenObject,
+    modifier: Modifier = Modifier,
+    fenceMask: Int = 0,
+    animationFrame: (() -> Int)? = null
+) {
     val item = ShopCatalog.byId(gardenObject.shopItemId)
-    PixelItemSprite(item = item, type = gardenObject.type, growthReady = gardenObject.sessionsRemaining == 0, modifier = modifier)
+    PixelItemSprite(
+        item = item,
+        type = gardenObject.type,
+        growthReady = gardenObject.sessionsRemaining == 0,
+        modifier = modifier,
+        growthStage = gardenObject.growthStage,
+        fenceMask = fenceMask,
+        animationFrame = animationFrame
+    )
 }
 
 @Composable
@@ -381,83 +393,6 @@ fun InventoryItemSprite(item: ShopItem?, modifier: Modifier = Modifier) {
 fun HouseObjectSprite(houseObject: HouseObject, modifier: Modifier = Modifier) {
     val item = ShopCatalog.byId(houseObject.shopItemId)
     PixelItemSprite(item = item, type = item?.gardenObjectType, growthReady = true, modifier = modifier)
-}
-
-@Composable
-fun CharacterSprite(character: CharacterCustomization, modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        val u = size.minDimension / 10f
-        val skin = when (character.skinTone) {
-            "deep" -> Color(0xFF8F5A3D)
-            "light" -> Color(0xFFE7B98A)
-            else -> Color(0xFFC98B5A)
-        }
-        val hair = when {
-            character.hairStyle.contains("aurora") -> Color(0xFF7ECFE0)
-            character.hairStyle.contains("leaf") -> GroveLeaf
-            character.hairStyle.contains("gold") -> Color(0xFFDCA94B)
-            else -> Color(0xFF4A3328)
-        }
-        val shirt = clothingColor(character.shirt)
-        drawRect(hair.shaded(0.82f), topLeft = Offset(2.7f * u, 0.8f * u), size = Size(4.6f * u, 2.5f * u))
-        drawRect(hair, topLeft = Offset(3 * u, u), size = Size(4 * u, 2 * u))
-        drawRect(skin, topLeft = Offset(3 * u, 2 * u), size = Size(4 * u, 3 * u))
-        drawRect(skin.lit(0.14f), topLeft = Offset(4.1f * u, 2.7f * u), size = Size(1.8f * u, 0.6f * u))
-        drawRect(shirt.shaded(0.72f), topLeft = Offset(2.4f * u, 5.4f * u), size = Size(6 * u, 3 * u))
-        drawRect(shirt, topLeft = Offset(2 * u, 5 * u), size = Size(6 * u, 3 * u))
-        drawRect(shirt.lit(0.26f), topLeft = Offset(3.1f * u, 5.4f * u), size = Size(2.8f * u, 0.55f * u))
-        if (character.shirt.hasAny("apron", "overalls", "uniform", "coat", "cardigan")) {
-            drawRect(Color(0xFFFFF2D1), topLeft = Offset(3.15f * u, 5.7f * u), size = Size(3.6f * u, 2.4f * u))
-            drawRect(shirt.shaded(0.7f), topLeft = Offset(3.15f * u, 5.7f * u), size = Size(0.5f * u, 2.4f * u))
-            drawRect(shirt.shaded(0.7f), topLeft = Offset(6.2f * u, 5.7f * u), size = Size(0.5f * u, 2.4f * u))
-        }
-        drawRect(Color(0xFF2D5C6F), topLeft = Offset(3 * u, 8 * u), size = Size(1.5f * u, 2 * u))
-        drawRect(Color(0xFF2D5C6F), topLeft = Offset(5.5f * u, 8 * u), size = Size(1.5f * u, 2 * u))
-        character.hat?.let { hatKey ->
-            val hat = woodLikeColor(hatKey).let { if (hatKey.contains("green")) GroveLeaf else if (hatKey.contains("red")) GroveBerry else it }
-            when {
-                hatKey.contains("crown") -> {
-                    drawRect(Color(0xFFFFD96A), topLeft = Offset(2.7f * u, 0.1f * u), size = Size(4.8f * u, 0.9f * u))
-                    drawRect(Color(0xFFFFD96A), topLeft = Offset(3f * u, -0.7f * u), size = Size(0.8f * u, 1.3f * u))
-                    drawRect(Color(0xFFFFD96A), topLeft = Offset(4.6f * u, -1.0f * u), size = Size(0.8f * u, 1.6f * u))
-                    drawRect(Color(0xFFFFD96A), topLeft = Offset(6.2f * u, -0.7f * u), size = Size(0.8f * u, 1.3f * u))
-                }
-                hatKey.hasAny("ears", "cat") -> {
-                    drawRect(hat, topLeft = Offset(2.6f * u, 0.1f * u), size = Size(4.8f * u, 1.1f * u))
-                    drawRect(hat, topLeft = Offset(2.7f * u, -0.8f * u), size = Size(1.1f * u, 1.5f * u))
-                    drawRect(hat, topLeft = Offset(6.1f * u, -0.8f * u), size = Size(1.1f * u, 1.5f * u))
-                }
-                else -> {
-                    drawRect(hat, topLeft = Offset(2 * u, 0.2f * u), size = Size(6 * u, u))
-                    drawRect(hat.lit(0.1f), topLeft = Offset(3 * u, -0.5f * u), size = Size(4 * u, u))
-                    drawRect(hat.shaded(0.72f), topLeft = Offset(3.1f * u, 0.7f * u), size = Size(3.8f * u, 0.35f * u))
-                }
-            }
-        }
-        character.backpack?.let { pack ->
-            val color = clothingColor(pack)
-            drawRect(color.shaded(0.65f), topLeft = Offset(1.2f * u, 5.2f * u), size = Size(1.4f * u, 3.1f * u))
-            drawRect(color, topLeft = Offset(1.5f * u, 5.4f * u), size = Size(1.2f * u, 2.6f * u))
-            drawRect(color.lit(0.26f), topLeft = Offset(1.7f * u, 5.8f * u), size = Size(0.7f * u, 0.45f * u))
-        }
-        character.accessory?.let { accessory ->
-            when {
-                accessory.contains("glasses") || accessory.contains("goggles") -> {
-                    drawRect(GroveInk, topLeft = Offset(3.2f * u, 3.1f * u), size = Size(1.2f * u, 0.45f * u))
-                    drawRect(GroveInk, topLeft = Offset(5.6f * u, 3.1f * u), size = Size(1.2f * u, 0.45f * u))
-                    drawRect(GroveInk, topLeft = Offset(4.4f * u, 3.25f * u), size = Size(1.2f * u, 0.18f * u))
-                }
-                accessory.contains("scarf") || accessory.contains("cape") -> {
-                    drawRect(clothingColor(accessory), topLeft = Offset(2.7f * u, 4.7f * u), size = Size(4.6f * u, 0.8f * u))
-                    drawRect(clothingColor(accessory).shaded(0.8f), topLeft = Offset(6.4f * u, 5.2f * u), size = Size(0.8f * u, 2.2f * u))
-                }
-                accessory.contains("boots") -> {
-                    drawRect(Color(0xFF5B3525), topLeft = Offset(2.8f * u, 9.3f * u), size = Size(2f * u, 0.7f * u))
-                    drawRect(Color(0xFF5B3525), topLeft = Offset(5.4f * u, 9.3f * u), size = Size(2f * u, 0.7f * u))
-                }
-            }
-        }
-    }
 }
 
 private fun DrawScope.drawPixelBadge(unlocked: Boolean) {
@@ -472,11 +407,44 @@ private fun PixelItemSprite(
     item: ShopItem?,
     type: GardenObjectType?,
     growthReady: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    growthStage: Int = 0,
+    fenceMask: Int = 0,
+    animationFrame: (() -> Int)? = null
 ) {
+    val key = item?.visualKey.orEmpty()
+    if (item?.placementTarget == PlacementTarget.HOUSE) {
+        val frame = furnitureFrames[key]
+        if (frame != null) {
+            PixelTile(PixelSheet.Furniture, frame, modifier)
+            return
+        }
+    }
+    if (type != null) {
+        val fenceRow = GardenArt.fences[key]
+        if (fenceRow != null) {
+            PixelTile(PixelSheet.Fences, fenceRow * 16 + fenceMask, modifier)
+            return
+        }
+        val motionRow = GardenArt.animated[key]
+        if (motionRow != null && animationFrame != null) {
+            PixelTile(PixelSheet.Motion, motionRow * 8, modifier, animationFrame)
+            return
+        }
+        val index = GardenArt.items[key]
+        if (index != null) {
+            if (item?.gardenObjectType == GardenObjectType.CROP && !growthReady) {
+                // Each growth phase follows the same crop order as the mature item sheet.
+                val phaseOffset = if (growthStage > 0) GardenArt.cropCount else 0
+                PixelTile(PixelSheet.Seedlings, phaseOffset + index, modifier)
+            } else {
+                PixelTile(PixelSheet.Items, index, modifier)
+            }
+            return
+        }
+    }
     Canvas(modifier) {
         val u = min(size.width, size.height) / 10f
-        val key = item?.visualKey.orEmpty()
         val itemId = item?.id.orEmpty()
         when {
             type == GardenObjectType.PATH || key.contains("path") -> drawPathSprite(key, itemId, u)

@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -34,14 +35,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.studygrove.app.data.model.CharacterCustomization
 import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.HouseObject
 import com.studygrove.app.data.model.HouseObjectType
@@ -52,7 +54,12 @@ import com.studygrove.app.data.model.HouseRoom
 import com.studygrove.app.data.model.HouseRooms
 import com.studygrove.app.data.model.HouseTransition
 import com.studygrove.app.data.model.ShopCatalog
+import com.studygrove.app.ui.components.AvatarFacing
+import com.studygrove.app.ui.components.connectionMask
 import com.studygrove.app.ui.components.CharacterSprite
+import com.studygrove.app.ui.components.MapTileGrid
+import com.studygrove.app.ui.components.PixelSheet
+import com.studygrove.app.ui.components.PixelTile
 import com.studygrove.app.ui.components.HouseObjectSprite
 import com.studygrove.app.ui.components.PixelButton
 import com.studygrove.app.ui.components.PixelPanel
@@ -79,7 +86,8 @@ fun HouseScreen(
     }
     var joystickVector by remember { mutableStateOf(Offset.Zero) }
     val latestGameData by rememberUpdatedState(gameData)
-    val latestExplorerPosition by rememberUpdatedState(explorerPosition)
+    var facing by remember { mutableStateOf(AvatarFacing.Front) }
+    var walkFrame by remember { mutableIntStateOf(0) }
     val latestJoystickVector by rememberUpdatedState(joystickVector)
     val latestSelectedItemId by rememberUpdatedState(selectedItemId)
     val latestOnTileTapped by rememberUpdatedState(onTileTapped)
@@ -95,7 +103,11 @@ fun HouseScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    val walking = joystickVector != Offset.Zero
+    LaunchedEffect(gameData.house.currentRoom, walking) {
+        walkFrame = 0
+        if (!walking) return@LaunchedEffect
+        var stride = 0f
         var lastFrameNanos = withFrameNanos { it }
         while (true) {
             val frameNanos = withFrameNanos { it }
@@ -103,22 +115,35 @@ fun HouseScreen(
             lastFrameNanos = frameNanos
 
             val vector = latestJoystickVector
-            if (vector == Offset.Zero) continue
+            val current = explorerPosition
 
             val move = resolveExplorerMove(
                 gameData = latestGameData,
-                current = latestExplorerPosition,
+                current = current,
                 dx = vector.x * HouseExplorerSpeedTilesPerSecond * deltaSeconds,
                 dy = vector.y * HouseExplorerSpeedTilesPerSecond * deltaSeconds
             )
 
-            if (move != null && !(move.portalTile != null && latestSelectedItemId != null)) {
-                explorerPosition = move.position
-                move.portalTile?.let { (x, y) ->
-                    joystickVector = Offset.Zero
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    latestOnTileTapped(x, y)
-                }
+            if (move == null || (move.portalTile != null && latestSelectedItemId != null)) {
+                facing = facing.toward(vector.x, vector.y)
+                stride = 0f
+                walkFrame = 0
+                continue
+            }
+            explorerPosition = move.position
+            if (move.portalTile != null) {
+                walkFrame = 0
+                joystickVector = Offset.Zero
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                latestOnTileTapped(move.portalTile.first, move.portalTile.second)
+                break
+            }
+            if (move.position.room == current.room) {
+                val dx = move.position.x - current.x
+                val dy = move.position.y - current.y
+                facing = facing.toward(dx, dy)
+                stride = (stride + sqrt(dx * dx + dy * dy) / HouseExplorerStrideTiles) % 1f
+                walkFrame = 1 + (stride * 8).toInt()
             }
         }
     }
@@ -155,6 +180,9 @@ fun HouseScreen(
         HouseGrid(
             gameData = gameData,
             explorerPosition = explorerPosition,
+            facing = facing,
+            walkFrame = walkFrame,
+            placing = selectedItemId != null,
             onTileTapped = onTileTapped
         )
         HouseExplorerControls(
@@ -186,6 +214,9 @@ fun HouseScreen(
 private fun HouseGrid(
     gameData: GameData,
     explorerPosition: HouseExplorerPosition,
+    facing: AvatarFacing,
+    walkFrame: Int,
+    placing: Boolean,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -202,6 +233,14 @@ private fun HouseGrid(
     val layoutByTile = remember(gameData.house.currentRoom, gameData.house.level, gameData.house.width, gameData.house.height) {
         HouseRooms.layoutCells(gameData.house).associateBy { it.x to it.y }
     }
+    val partitionMasks = remember(layoutByTile, objectsByTile) {
+        val walls = layoutByTile.filter { (tile, cell) ->
+            cell.kind == HouseLayoutCellKind.WALL && tile !in objectsByTile
+        }.keys
+        walls.associateWith { (x, y) ->
+            connectionMask(x, y) { nx, ny -> (nx to ny) in walls }
+        }
+    }
     ZoomableMapViewport(
         gridWidth = roomSpec.width,
         gridHeight = roomSpec.height,
@@ -209,6 +248,9 @@ private fun HouseGrid(
         maxScale = 3.5f
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
+            val tiles = MapTileGrid(
+                constraints.maxWidth, constraints.maxHeight, roomSpec.width, roomSpec.height, LocalDensity.current
+            )
             val tileSize = maxWidth / roomSpec.width
             Column(Modifier.fillMaxWidth()) {
                 repeat(roomSpec.height) { y ->
@@ -219,15 +261,24 @@ private fun HouseGrid(
                             val layoutCell = layoutByTile[x to y]?.takeIf { obj == null && transition == null }
                             Box(
                                 modifier = Modifier
-                                    .size(tileSize)
-                                    .background(houseFloorColor(currentRoom, x, y))
-                                    .border(0.5.dp, GroveInk.copy(alpha = 0.28f))
+                                    .size(tiles.size(x, y))
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         onTileTapped(x, y)
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
+                                val variant = (x * 3 + y + x * y) % 4
+                                PixelTile(PixelSheet.House, currentRoom.materialRow * 4 + variant, Modifier.matchParentSize())
+                                val hasWindow = y < 2 && x % 4 == 2 &&
+                                    (x to 0) !in layoutByTile && (x to 0) !in transitionsByTile
+                                if (hasWindow && currentRoom != HouseRoom.LIBRARY && currentRoom != HouseRoom.BALCONY) {
+                                    PixelTile(PixelSheet.House, 45 + y, Modifier.matchParentSize())
+                                }
+                                if (y == 0) {
+                                    val wall = currentRoom.materialRow * 2 + if (hasWindow) 1 else 0
+                                    PixelTile(PixelSheet.BackWalls, wall, Modifier.matchParentSize())
+                                }
                                 when {
                                     transition != null -> HousePortalTile(
                                         transition = transition,
@@ -236,9 +287,13 @@ private fun HouseGrid(
                                     )
                                     layoutCell != null -> HouseLayoutTile(
                                         cell = layoutCell,
-                                        modifier = Modifier.matchParentSize().padding(1.dp)
+                                        wallMask = partitionMasks[x to y] ?: 0,
+                                        modifier = Modifier.matchParentSize()
                                     )
-                                    obj != null -> HouseObjectSprite(obj, Modifier.matchParentSize().padding(2.dp))
+                                    obj != null -> HouseObjectSprite(obj, Modifier.matchParentSize())
+                                }
+                                if (placing) {
+                                    Box(Modifier.matchParentSize().border(0.5.dp, GroveInk.copy(alpha = 0.28f)))
                                 }
                             }
                         }
@@ -248,6 +303,8 @@ private fun HouseGrid(
             if (explorerPosition.room == currentRoom) {
                 HouseExplorerSprite(
                     gameData.character,
+                    facing,
+                    walkFrame,
                     modifier = Modifier
                         .size(tileSize)
                         .offset {
@@ -265,7 +322,9 @@ private fun HouseGrid(
 
 @Composable
 private fun HouseExplorerSprite(
-    character: com.studygrove.app.data.model.CharacterCustomization,
+    character: CharacterCustomization,
+    facing: AvatarFacing,
+    walkFrame: Int,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier) {
@@ -273,16 +332,12 @@ private fun HouseExplorerSprite(
             val u = size.minDimension / 10f
             drawOval(
                 Color(0xFF2D241F).copy(alpha = 0.24f),
-                topLeft = Offset(2.0f * u, 7.7f * u),
-                size = Size(6.0f * u, 1.4f * u)
+                topLeft = Offset(2.5f * u, 8.7f * u),
+                size = Size(5f * u, 0.9f * u)
             )
-            drawRect(
-                Color(0xFF2D241F).copy(alpha = 0.16f),
-                topLeft = Offset(2.7f * u, 6.2f * u),
-                size = Size(4.6f * u, 2.1f * u)
-            )
+
         }
-        CharacterSprite(character = character, modifier = Modifier.fillMaxSize().padding(1.dp))
+        CharacterSprite(character, Modifier.fillMaxSize(), facing, walkFrame)
     }
 }
 
@@ -371,6 +426,7 @@ private data class HouseExplorerMove(
     val portalTile: Pair<Int, Int>? = null
 )
 
+private const val HouseExplorerStrideTiles = 1.65f
 private const val HouseExplorerSpeedTilesPerSecond = 3.4f
 
 private fun resolveExplorerMove(
@@ -463,11 +519,24 @@ private fun HouseObject.blocksExplorer(): Boolean =
 @Composable
 private fun HouseLayoutTile(
     cell: HouseLayoutCell,
+    wallMask: Int,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier.fillMaxSize()) {
-        drawHouseLayoutCell(cell)
+    val frame = when (cell.kind) {
+        HouseLayoutCellKind.WALL -> {
+            PixelTile(PixelSheet.Partitions, wallMask, modifier)
+            return
+        }
+        HouseLayoutCellKind.COUNTER -> if (cell.label.contains("desk", ignoreCase = true)) 31 else 30
+        HouseLayoutCellKind.WINDOW -> 32
+        HouseLayoutCellKind.WARDROBE -> if (cell.label.contains("storage", ignoreCase = true)) 33 else 37
+        HouseLayoutCellKind.RAILING -> 34
+        HouseLayoutCellKind.SHELF -> 35
+        HouseLayoutCellKind.HEARTH -> 36
+        HouseLayoutCellKind.ROOF_BEAM -> 38
+        HouseLayoutCellKind.PLANTER -> 39
     }
+    PixelTile(PixelSheet.House, frame, modifier)
 }
 
 @Composable
@@ -508,177 +577,28 @@ private fun HousePortalTile(
     unlocked: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier.fillMaxSize()) {
-        drawPortal(transition = transition, unlocked = unlocked)
+    val frame = when (transition.kind) {
+        HousePortalKind.DOOR -> 40
+        HousePortalKind.BALCONY_DOOR -> 41
+        HousePortalKind.STAIRS_UP -> 42
+        HousePortalKind.STAIRS_DOWN -> 43
     }
-}
-
-private fun houseFloorColor(room: HouseRoom, x: Int, y: Int): Color {
-    val even = (x + y) % 2 == 0
-    return when (room) {
-        HouseRoom.MAIN -> if (even) Color(0xFFE8B27A) else Color(0xFFD79A62)
-        HouseRoom.BEDROOM -> if (even) Color(0xFFE8A7A0) else Color(0xFFD98A84)
-        HouseRoom.STUDY -> if (even) Color(0xFFD6C596) else Color(0xFFC2AE78)
-        HouseRoom.KITCHEN -> if (even) Color(0xFFFFD58E) else Color(0xFFE7B86C)
-        HouseRoom.LIBRARY -> if (even) Color(0xFFC78567) else Color(0xFFA96855)
-        HouseRoom.ATTIC -> if (even) Color(0xFFB47A4D) else Color(0xFF95613E)
-        HouseRoom.BALCONY -> if (even) Color(0xFFC4D7D9) else Color(0xFFA8C3C7)
-    }
-}
-
-private fun DrawScope.drawHouseLayoutCell(cell: HouseLayoutCell) {
-    val u = size.minDimension / 10f
-    val dark = Color(0xFF3E2F2B)
-    when (cell.kind) {
-        HouseLayoutCellKind.WALL -> {
-            val isGrayWall = cell.label.contains("gray", ignoreCase = true)
-            val isWoodenWall = cell.label.contains("wooden", ignoreCase = true)
-            val edge = when {
-                isGrayWall -> Color(0xFF6F7477)
-                isWoodenWall -> Color(0xFF6A432B)
-                else -> Color(0xFF8D5A35)
-            }
-            val face = when {
-                isGrayWall -> Color(0xFFA9AFB0)
-                isWoodenWall -> Color(0xFF9B6942)
-                else -> Color(0xFFB97948)
-            }
-            val groove = when {
-                isGrayWall -> Color(0xFFE2E0D5).copy(alpha = 0.38f)
-                isWoodenWall -> Color(0xFFFFD58E).copy(alpha = 0.28f)
-                else -> Color(0xFFFFD58E).copy(alpha = 0.36f)
-            }
-            drawRect(edge, topLeft = Offset(0.8f * u, 1.0f * u), size = Size(8.4f * u, 7.8f * u))
-            drawRect(face, topLeft = Offset(1.2f * u, 1.5f * u), size = Size(7.6f * u, 6.6f * u))
-            repeat(3) { index ->
-                drawRect(groove, topLeft = Offset((1.4f + index * 2.4f) * u, 2.1f * u), size = Size(0.4f * u, 5.1f * u))
-            }
-        }
-        HouseLayoutCellKind.WINDOW -> {
-            drawRect(dark.copy(alpha = 0.25f), topLeft = Offset(1.4f * u, 1.2f * u), size = Size(7.2f * u, 7.0f * u))
-            drawRect(Color(0xFFBDE7E7), topLeft = Offset(1.9f * u, 1.7f * u), size = Size(6.2f * u, 5.8f * u))
-            drawRect(Color(0xFFE7FFFF), topLeft = Offset(2.4f * u, 2.2f * u), size = Size(2.2f * u, 2.1f * u))
-            drawRect(Color(0xFF6C8F89), topLeft = Offset(4.75f * u, 1.8f * u), size = Size(0.45f * u, 5.6f * u))
-            drawRect(Color(0xFF6C8F89), topLeft = Offset(2.0f * u, 4.6f * u), size = Size(6.0f * u, 0.45f * u))
-            drawRect(Color(0xFFFFF2B6), topLeft = Offset(6.1f * u, 2.4f * u), size = Size(0.8f * u, 0.8f * u))
-        }
-        HouseLayoutCellKind.SHELF -> {
-            drawRect(Color(0xFF6B513D), topLeft = Offset(1.3f * u, 1.2f * u), size = Size(7.4f * u, 7.2f * u))
-            drawRect(Color(0xFF8D5A35), topLeft = Offset(1.7f * u, 1.6f * u), size = Size(6.6f * u, 6.3f * u))
-            repeat(3) { shelf ->
-                drawRect(Color(0xFF4A3B30), topLeft = Offset(2.0f * u, (3.0f + shelf * 1.5f) * u), size = Size(6.0f * u, 0.32f * u))
-            }
-            repeat(5) { index ->
-                val color = listOf(Color(0xFF5F8FCB), GroveBerry, Color(0xFFFFD96A), GroveMoss, Color(0xFF8E72D8))[index]
-                drawRect(color, topLeft = Offset((2.15f + index * 1.05f) * u, (2.0f + index % 2 * 1.55f) * u), size = Size(0.52f * u, 1.1f * u))
-            }
-        }
-        HouseLayoutCellKind.COUNTER -> {
-            drawRect(Color(0xFF7A4D31), topLeft = Offset(1.2f * u, 4.0f * u), size = Size(7.7f * u, 3.9f * u))
-            drawRect(Color(0xFFFFE0A3), topLeft = Offset(0.9f * u, 3.35f * u), size = Size(8.2f * u, 1.2f * u))
-            drawRect(Color(0xFFBDE7E7), topLeft = Offset(5.9f * u, 2.25f * u), size = Size(1.4f * u, 1.0f * u))
-            drawRect(Color(0xFF8D5A35), topLeft = Offset(2.1f * u, 5.1f * u), size = Size(1.4f * u, 1.5f * u))
-            drawRect(Color(0xFF8D5A35), topLeft = Offset(4.1f * u, 5.1f * u), size = Size(1.4f * u, 1.5f * u))
-        }
-        HouseLayoutCellKind.HEARTH -> {
-            drawRect(Color(0xFF7A4D31), topLeft = Offset(1.1f * u, 2.0f * u), size = Size(7.8f * u, 6.1f * u))
-            drawRect(Color(0xFF40332F), topLeft = Offset(2.6f * u, 3.3f * u), size = Size(4.8f * u, 3.4f * u))
-            drawRect(Color(0xFFFFA755), topLeft = Offset(4.0f * u, 4.2f * u), size = Size(1.6f * u, 2.0f * u))
-            drawRect(Color(0xFFFFD96A), topLeft = Offset(4.5f * u, 3.6f * u), size = Size(0.9f * u, 1.0f * u))
-            drawRect(Color(0xFFB97948), topLeft = Offset(1.8f * u, 1.45f * u), size = Size(6.5f * u, 0.65f * u))
-        }
-        HouseLayoutCellKind.WARDROBE -> {
-            if (cell.label.contains("storage", ignoreCase = true)) {
-                drawRect(Color(0xFF4A3328), topLeft = Offset(1.5f * u, 4.5f * u), size = Size(7.0f * u, 3.7f * u))
-                drawRect(Color(0xFF8D5A35), topLeft = Offset(1.9f * u, 3.7f * u), size = Size(6.2f * u, 4.0f * u))
-                drawRect(Color(0xFFB97948), topLeft = Offset(2.3f * u, 4.2f * u), size = Size(5.4f * u, 2.7f * u))
-                drawRect(Color(0xFFFFD96A), topLeft = Offset(4.5f * u, 5.1f * u), size = Size(1.0f * u, 0.7f * u))
-                drawRect(Color(0xFF6B513D), topLeft = Offset(1.8f * u, 3.45f * u), size = Size(6.4f * u, 0.55f * u))
-            } else {
-                drawRect(Color(0xFF6B513D), topLeft = Offset(1.8f * u, 1.0f * u), size = Size(6.4f * u, 7.9f * u))
-                drawRect(Color(0xFF9B6942), topLeft = Offset(2.25f * u, 1.45f * u), size = Size(5.5f * u, 7.0f * u))
-                drawRect(Color(0xFF7A4D31), topLeft = Offset(4.75f * u, 1.7f * u), size = Size(0.38f * u, 6.3f * u))
-                drawRect(Color(0xFFFFD96A), topLeft = Offset(4.1f * u, 4.7f * u), size = Size(0.42f * u, 0.42f * u))
-                drawRect(Color(0xFFFFD96A), topLeft = Offset(5.55f * u, 4.7f * u), size = Size(0.42f * u, 0.42f * u))
-            }
-        }
-        HouseLayoutCellKind.ROOF_BEAM -> {
-            drawRect(Color(0xFF4A3B30), topLeft = Offset(0.8f * u, 2.5f * u), size = Size(8.4f * u, 1.4f * u))
-            drawRect(Color(0xFF7A4D31), topLeft = Offset(1.2f * u, 2.9f * u), size = Size(7.6f * u, 0.55f * u))
-            drawRect(Color(0xFF95613E), topLeft = Offset(2.1f * u, 4.0f * u), size = Size(0.65f * u, 3.4f * u))
-            drawRect(Color(0xFF95613E), topLeft = Offset(7.0f * u, 4.0f * u), size = Size(0.65f * u, 3.4f * u))
-        }
-        HouseLayoutCellKind.RAILING -> {
-            drawRect(Color(0xFF6C8F89), topLeft = Offset(0.8f * u, 5.9f * u), size = Size(8.4f * u, 0.7f * u))
-            drawRect(Color(0xFF6C8F89), topLeft = Offset(0.8f * u, 7.4f * u), size = Size(8.4f * u, 0.7f * u))
-            repeat(4) { index ->
-                drawRect(Color(0xFF557D83), topLeft = Offset((1.3f + index * 2.0f) * u, 4.3f * u), size = Size(0.45f * u, 3.7f * u))
-            }
-        }
-        HouseLayoutCellKind.PLANTER -> {
-            drawRect(Color(0xFF7A4D31), topLeft = Offset(1.3f * u, 5.8f * u), size = Size(7.3f * u, 2.0f * u))
-            drawRect(Color(0xFF4A3B30), topLeft = Offset(1.8f * u, 5.3f * u), size = Size(6.3f * u, 0.7f * u))
-            repeat(4) { index ->
-                drawRect(GroveMoss.lit(index * 0.04f), topLeft = Offset((2.0f + index * 1.4f) * u, (3.6f + index % 2 * 0.35f) * u), size = Size(0.9f * u, 1.7f * u))
-                drawRect(Color(0xFFFFD96A), topLeft = Offset((2.15f + index * 1.4f) * u, 3.15f * u), size = Size(0.55f * u, 0.55f * u))
-            }
+    Box(modifier) {
+        PixelTile(PixelSheet.House, frame, Modifier.matchParentSize())
+        if (!unlocked) {
+            Box(Modifier.matchParentSize().background(Color(0x5547393C)))
+            PixelTile(PixelSheet.House, 44, Modifier.matchParentSize())
         }
     }
 }
 
-private fun DrawScope.drawPortal(transition: HouseTransition, unlocked: Boolean) {
-    val u = size.minDimension / 10f
-    val ink = Color(0xFF3E2F2B)
-    val wood = if (unlocked) Color(0xFF8D5A35) else Color(0xFF8C7D71)
-    val glow = if (unlocked) Color(0xFFFFF2B6) else Color(0xFFBBAFA6)
-
-    when (transition.kind) {
-        HousePortalKind.DOOR,
-        HousePortalKind.BALCONY_DOOR -> {
-            drawRect(ink.copy(alpha = 0.24f), topLeft = Offset(2.0f * u, 2.0f * u), size = Size(6.0f * u, 7.0f * u))
-            drawRect(wood, topLeft = Offset(2.6f * u, 2.6f * u), size = Size(4.8f * u, 5.9f * u))
-            drawRect(wood.lit(0.18f), topLeft = Offset(3.2f * u, 3.1f * u), size = Size(3.6f * u, 4.8f * u))
-            drawRect(glow, topLeft = Offset(6.1f * u, 5.0f * u), size = Size(0.55f * u, 0.55f * u))
-            if (transition.kind == HousePortalKind.BALCONY_DOOR) {
-                drawRect(Color(0xFF7A9BA0), topLeft = Offset(2.4f * u, 7.6f * u), size = Size(5.2f * u, 0.45f * u))
-                repeat(3) { index ->
-                    drawRect(Color(0xFF7A9BA0), topLeft = Offset((3.0f + index * 1.5f) * u, 6.2f * u), size = Size(0.35f * u, 1.7f * u))
-                }
-            }
-        }
-        HousePortalKind.STAIRS_UP,
-        HousePortalKind.STAIRS_DOWN -> {
-            val stepColor = if (unlocked) Color(0xFF7A4D31) else Color(0xFF8C7D71)
-            repeat(5) { index ->
-                val width = (2.2f + index * 1.1f) * u
-                val left = (5f * u) - width / 2f
-                drawRect(
-                    stepColor.lit(index * 0.05f),
-                    topLeft = Offset(left, (2.1f + index * 1.05f) * u),
-                    size = Size(width, 0.62f * u)
-                )
-            }
-            val arrowTop = if (transition.kind == HousePortalKind.STAIRS_UP) 1.2f else 7.4f
-            drawRect(glow, topLeft = Offset(4.4f * u, arrowTop * u), size = Size(1.2f * u, 0.7f * u))
-            if (transition.kind == HousePortalKind.STAIRS_UP) {
-                drawRect(glow, topLeft = Offset(4.75f * u, 0.8f * u), size = Size(0.5f * u, 1.3f * u))
-            } else {
-                drawRect(glow, topLeft = Offset(4.75f * u, 7.2f * u), size = Size(0.5f * u, 1.3f * u))
-            }
-        }
+private val HouseRoom.materialRow: Int
+    get() = when (this) {
+        HouseRoom.MAIN -> 0
+        HouseRoom.BEDROOM -> 1
+        HouseRoom.STUDY -> 2
+        HouseRoom.KITCHEN -> 3
+        HouseRoom.LIBRARY -> 4
+        HouseRoom.ATTIC -> 5
+        HouseRoom.BALCONY -> 6
     }
-
-    if (!unlocked) {
-        drawRect(Color(0xFF40332F).copy(alpha = 0.42f), topLeft = Offset(1.6f * u, 1.5f * u), size = Size(6.8f * u, 7.2f * u))
-        drawRect(Color(0xFFFFF2D1), topLeft = Offset(3.7f * u, 4.0f * u), size = Size(2.6f * u, 2.1f * u))
-        drawRect(Color(0xFF40332F), topLeft = Offset(4.25f * u, 3.2f * u), size = Size(1.5f * u, 1.2f * u))
-    }
-}
-
-private fun Color.lit(amount: Float): Color =
-    Color(
-        red = (red + amount).coerceIn(0f, 1f),
-        green = (green + amount).coerceIn(0f, 1f),
-        blue = (blue + amount).coerceIn(0f, 1f),
-        alpha = alpha
-    )

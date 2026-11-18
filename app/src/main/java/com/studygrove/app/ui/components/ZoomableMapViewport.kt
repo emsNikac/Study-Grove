@@ -35,10 +35,31 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.studygrove.app.ui.theme.GroveCream
 import com.studygrove.app.ui.theme.GroveInk
+
+/** Round shared tile edges once so adjacent sprites meet even on indivisible screen widths. */
+internal class MapTileGrid(
+    private val widthPx: Int,
+    private val heightPx: Int,
+    private val columns: Int,
+    private val rows: Int,
+    private val density: Density
+) {
+    private fun edgeX(x: Int) = x * widthPx / columns
+    private fun edgeY(y: Int) = y * heightPx / rows
+
+    fun offset(x: Int, y: Int) = IntOffset(edgeX(x), edgeY(y))
+
+    fun size(x: Int, y: Int, width: Int = 1, height: Int = 1): DpSize = with(density) {
+        DpSize((edgeX(x + width) - edgeX(x)).toDp(), (edgeY(y + height) - edgeY(y)).toDp())
+    }
+}
 
 @Composable
 fun ZoomableMapViewport(

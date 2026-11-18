@@ -273,14 +273,14 @@ object HouseRooms {
                 addAll(
                     listOf(11 to 3, 10 to 3, 9 to 3, 8 to 3, 7 to 3, 6 to 3, 6 to 2, 6 to 4, 6 to 5),
                     HouseLayoutCellKind.WALL,
-                    "gray wall"
+                    "white plaster wall"
                 )
             }
             HouseRoom.BEDROOM -> {
                 addAll(
                     listOf(3 to 0, 3 to 1, 3 to 2, 3 to 3),
                     HouseLayoutCellKind.WALL,
-                    "gray wall"
+                    "white plaster wall"
                 )
             }
             HouseRoom.STUDY -> {
@@ -309,7 +309,7 @@ object HouseRooms {
                 addAll(
                     listOf(8 to 4, 8 to 3, 7 to 4, 7 to 3),
                     HouseLayoutCellKind.WALL,
-                    "wooden wall"
+                    "white plaster wall"
                 )
             }
             HouseRoom.BALCONY -> {
