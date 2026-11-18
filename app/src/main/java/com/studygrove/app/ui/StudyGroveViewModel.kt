@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.studygrove.app.data.local.StudyGroveLocalDataSource
+import com.studygrove.app.data.model.HouseItemEdit
+import com.studygrove.app.data.model.HouseObject
 import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.ShopCatalog
 import com.studygrove.app.data.model.StudyReward
@@ -235,6 +237,15 @@ class StudyGroveViewModel(application: Application) : AndroidViewModel(applicati
             _message.value = result.message
             val enabled = repository.current().settings.soundEnabled
             if (result.success && selected != null) soundEngine.planting(enabled) else soundEngine.click(enabled)
+        }
+    }
+
+    fun editHouseItem(target: HouseObject, edit: HouseItemEdit) {
+        viewModelScope.launch {
+            val result = repository.editHouseItem(target, edit)
+            _message.value = result.message
+            val sound = repository.current().settings.soundEnabled
+            if (result.success && edit == HouseItemEdit.Delete) soundEngine.takeOut(sound) else soundEngine.click(sound)
         }
     }
 

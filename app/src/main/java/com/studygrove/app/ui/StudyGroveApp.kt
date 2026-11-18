@@ -125,6 +125,7 @@ fun StudyGroveApp(viewModel: StudyGroveViewModel) {
                             gameData = gameData,
                             selectedItemId = selectedHouseItem,
                             onTileTapped = viewModel::onHouseTileTapped,
+                            onEditItem = viewModel::editHouseItem,
                             onSelectFurniture = viewModel::selectHouseItem,
                             onClearSelection = viewModel::clearHouseSelection
                         )

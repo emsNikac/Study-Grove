@@ -1,5 +1,7 @@
 package com.studygrove.app.ui.house
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,12 +23,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -46,6 +50,9 @@ import androidx.compose.ui.unit.dp
 import com.studygrove.app.data.model.CharacterCustomization
 import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.HouseObject
+import com.studygrove.app.data.model.HouseItemEdit
+import com.studygrove.app.data.model.furnitureJoins
+import com.studygrove.app.data.model.furnitureAngle
 import com.studygrove.app.data.model.HouseObjectType
 import com.studygrove.app.data.model.HouseLayoutCell
 import com.studygrove.app.data.model.HouseLayoutCellKind
@@ -77,6 +84,7 @@ fun HouseScreen(
     gameData: GameData,
     selectedItemId: String?,
     onTileTapped: (Int, Int) -> Unit,
+    onEditItem: (HouseObject, HouseItemEdit) -> Unit,
     onSelectFurniture: (String) -> Unit,
     onClearSelection: () -> Unit
 ) {
@@ -183,6 +191,7 @@ fun HouseScreen(
             facing = facing,
             walkFrame = walkFrame,
             placing = selectedItemId != null,
+            onEditItem = onEditItem,
             onTileTapped = onTileTapped
         )
         HouseExplorerControls(
@@ -210,6 +219,7 @@ fun HouseScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HouseGrid(
     gameData: GameData,
@@ -217,6 +227,7 @@ private fun HouseGrid(
     facing: AvatarFacing,
     walkFrame: Int,
     placing: Boolean,
+    onEditItem: (HouseObject, HouseItemEdit) -> Unit,
     onTileTapped: (Int, Int) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -241,6 +252,20 @@ private fun HouseGrid(
             connectionMask(x, y) { nx, ny -> (nx to ny) in walls }
         }
     }
+    val joins = remember(objectsByTile, layoutByTile, transitionsByTile) {
+        furnitureJoins(objectsByTile, layoutByTile.keys + transitionsByTile.keys)
+    }
+    val connected = remember(joins) { joins.flatMap { listOf(it.first, it.second) }.toSet() }
+    var heldItem by remember(currentRoom) { mutableStateOf<HouseObject?>(null) }
+    heldItem?.let { target ->
+        val placed = objectsByTile[target.x to target.y]
+        if (placed?.id == target.id) {
+            FurnitureEditDialog(placed, onDismiss = { heldItem = null }) { edit ->
+                heldItem = null
+                onEditItem(target, edit)
+            }
+        }
+    }
     ZoomableMapViewport(
         gridWidth = roomSpec.width,
         gridHeight = roomSpec.height,
@@ -259,13 +284,20 @@ private fun HouseGrid(
                             val obj = objectsByTile[x to y]
                             val transition = transitionsByTile[x to y]?.takeIf { obj == null }
                             val layoutCell = layoutByTile[x to y]?.takeIf { obj == null && transition == null }
+                            val tap = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onTileTapped(x, y)
+                            }
+                            val tile = Modifier.size(tiles.size(x, y))
                             Box(
-                                modifier = Modifier
-                                    .size(tiles.size(x, y))
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onTileTapped(x, y)
-                                    },
+                                modifier = if (obj == null) tile.clickable(onClick = tap) else tile.combinedClickable(
+                                    onClick = tap,
+                                    onLongClickLabel = "Edit ${ShopCatalog.byId(obj.shopItemId)?.name ?: "furniture"}",
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        heldItem = obj
+                                    }
+                                ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 val variant = (x * 3 + y + x * y) % 4
@@ -290,7 +322,7 @@ private fun HouseGrid(
                                         wallMask = partitionMasks[x to y] ?: 0,
                                         modifier = Modifier.matchParentSize()
                                     )
-                                    obj != null -> HouseObjectSprite(obj, Modifier.matchParentSize())
+                                    obj != null && obj !in connected -> HouseObjectSprite(obj, Modifier.matchParentSize())
                                 }
                                 if (placing) {
                                     Box(Modifier.matchParentSize().border(0.5.dp, GroveInk.copy(alpha = 0.28f)))
@@ -300,6 +332,7 @@ private fun HouseGrid(
                     }
                 }
             }
+            ConnectedFurnitureLayer(joins, roomSpec.width, roomSpec.height, Modifier.matchParentSize())
             if (explorerPosition.room == currentRoom) {
                 HouseExplorerSprite(
                     gameData.character,
@@ -318,6 +351,37 @@ private fun HouseGrid(
             }
         }
     }
+}
+
+@Composable
+private fun FurnitureEditDialog(
+    item: HouseObject,
+    onDismiss: () -> Unit,
+    onEdit: (HouseItemEdit) -> Unit
+) {
+    var angle by rememberSaveable(item.id, item.x, item.y) { mutableIntStateOf(item.rotationDegrees) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(ShopCatalog.byId(item.shopItemId)?.name ?: "Furniture") },
+        text = {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                HouseObjectSprite(item.copy(rotationDegrees = angle), Modifier.size(88.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { angle = furnitureAngle(angle - 45) }) { Text("−45°") }
+                    Text("$angle°", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { angle = furnitureAngle(angle + 45) }) { Text("+45°") }
+                }
+                Text("Line up neighboring pieces side by side to join them.")
+                TextButton(onClick = { onEdit(HouseItemEdit.Delete) }) { Text("Delete from room", color = GroveBerry) }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = {
+                if (angle == item.rotationDegrees) onDismiss() else onEdit(HouseItemEdit.Rotate(angle))
+            }) { Text("Save rotation") }
+        }
+    )
 }
 
 @Composable

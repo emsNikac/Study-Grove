@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -125,15 +124,16 @@ fun ZoomableMapViewport(
                     .pointerInput(viewportWidthPx, viewportHeightPx, maxScale) {
                         awaitEachGesture {
                             var controllingMap = false
+                            var pendingPan = Offset.Zero
                             do {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val pressedCount = event.changes.count { it.pressed }
                                 val zoom = event.calculateZoom()
                                 val pan = event.calculatePan()
-                                val hasMovement = event.changes.any { it.positionChanged() }
+                                pendingPan += pan
                                 val shouldControlMap = pressedCount > 1 ||
                                     controllingMap ||
-                                    (scale > 1.01f && pressedCount == 1 && hasMovement)
+                                    (scale > 1.01f && pressedCount == 1 && pendingPan.getDistance() > viewConfiguration.touchSlop)
 
                                 if (shouldControlMap) {
                                     controllingMap = true

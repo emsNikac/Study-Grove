@@ -9,6 +9,9 @@ import com.studygrove.app.data.model.GameData
 import com.studygrove.app.data.model.GardenObject
 import com.studygrove.app.data.model.GardenObjectFootprints
 import com.studygrove.app.data.model.GardenObjectType
+import com.studygrove.app.data.model.HouseItemEdit
+import com.studygrove.app.data.model.furnitureAngle
+import com.studygrove.app.data.model.placementAngle
 import com.studygrove.app.data.model.HouseObject
 import com.studygrove.app.data.model.HouseRooms
 import com.studygrove.app.data.model.HouseSpecialUnlocks
@@ -398,7 +401,13 @@ class StudyGroveRepository(
                         y = y,
                         type = item.houseObjectType,
                         room = currentRoom,
-                        placedAtEpochMillis = nowMillis
+                        placedAtEpochMillis = nowMillis,
+                        rotationDegrees = placementAngle(
+                            x, y,
+                            data.house.objects.filter { it.room == currentRoom }.associateBy { it.x to it.y },
+                            (HouseRooms.layoutCells(data.house).map { it.x to it.y } +
+                                HouseRooms.transitions(data.house).map { it.x to it.y }).toSet()
+                        )
                     )
                     result = PlacementResult(true, "Placed ${item.name}.")
                     data.copy(
@@ -411,7 +420,7 @@ class StudyGroveRepository(
         return result
     }
 
-    suspend fun interactHouseTile(x: Int, y: Int, nowMillis: Long = System.currentTimeMillis()): PlacementResult {
+    suspend fun interactHouseTile(x: Int, y: Int): PlacementResult {
         var result = PlacementResult(false, "That room tile is empty.")
         localDataSource.update { data ->
             val currentRoom = data.house.currentRoom
@@ -445,16 +454,20 @@ class StudyGroveRepository(
                     }
                 }
             } else {
-                val item = ShopCatalog.byId(houseObject.shopItemId) ?: return@update data
-                result = PlacementResult(
-                    true,
-                    if (data.settings.testModeEnabled) "Removed ${item.name}." else "Moved ${item.name} back to inventory."
-                )
-                data.copy(
-                    inventory = if (data.settings.testModeEnabled) data.inventory else data.inventory.add(item.id, nowMillis),
-                    house = data.house.copy(objects = data.house.objects.filterNot { it.id == houseObject.id })
-                )
+                val name = ShopCatalog.byId(houseObject.shopItemId)?.name ?: "this item"
+                result = PlacementResult(true, "Hold $name to rotate or delete it.")
+                data
             }
+        }
+        return result
+    }
+
+    suspend fun editHouseItem(target: HouseObject, edit: HouseItemEdit): PlacementResult {
+        var result = PlacementResult(false, "That item is no longer here.")
+        localDataSource.update { data ->
+            val (updated, outcome) = data.withHouseItemEdit(target, edit)
+            result = outcome
+            updated
         }
         return result
     }
@@ -659,15 +672,6 @@ class StudyGroveRepository(
         )
     )
 
-    private fun List<InventoryItem>.add(itemId: String, nowMillis: Long): List<InventoryItem> {
-        val existing = firstOrNull { it.shopItemId == itemId }
-        return if (existing == null) {
-            this + InventoryItem(shopItemId = itemId, quantity = 1, firstPurchasedAtEpochMillis = nowMillis)
-        } else {
-            map { if (it.shopItemId == itemId) it.copy(quantity = it.quantity + 1) else it }
-        }
-    }
-
     private fun List<InventoryItem>.decrement(itemId: String): List<InventoryItem> =
         mapNotNull { item ->
             if (item.shopItemId == itemId) {
@@ -686,5 +690,41 @@ class StudyGroveRepository(
         CosmeticSlot.SKIN_TONE -> copy(skinTone = item.visualKey)
         CosmeticSlot.ACCESSORY -> copy(accessory = item.visualKey)
         null -> this
+    }
+}
+
+internal fun GameData.withHouseItemEdit(
+    target: HouseObject,
+    edit: HouseItemEdit,
+    nowMillis: Long = System.currentTimeMillis()
+): Pair<GameData, PlacementResult> {
+    val index = house.objects.indexOfFirst {
+        it.room == house.currentRoom && it.room == target.room && it.x == target.x && it.y == target.y && it.id == target.id
+    }
+    if (index < 0) return this to PlacementResult(false, "That item is no longer here.")
+    val placed = house.objects[index]
+    val name = ShopCatalog.byId(placed.shopItemId)?.name ?: "Furniture"
+    val objects = house.objects.toMutableList()
+    return when (edit) {
+        is HouseItemEdit.Rotate -> {
+            val angle = furnitureAngle(edit.degrees)
+            objects[index] = placed.copy(rotationDegrees = angle)
+            copy(house = house.copy(objects = objects)) to PlacementResult(true, "Rotated $name to $angle°.")
+        }
+        HouseItemEdit.Delete -> {
+            objects.removeAt(index)
+            val returned = if (settings.testModeEnabled) inventory else inventory.add(placed.shopItemId, nowMillis)
+            val message = if (settings.testModeEnabled) "Removed $name." else "Returned $name to inventory."
+            copy(house = house.copy(objects = objects), inventory = returned) to PlacementResult(true, message)
+        }
+    }
+}
+
+private fun List<InventoryItem>.add(itemId: String, nowMillis: Long): List<InventoryItem> {
+    val existing = firstOrNull { it.shopItemId == itemId }
+    return if (existing == null) {
+        this + InventoryItem(shopItemId = itemId, quantity = 1, firstPurchasedAtEpochMillis = nowMillis)
+    } else {
+        map { if (it.shopItemId == itemId) it.copy(quantity = it.quantity + 1) else it }
     }
 }

@@ -131,8 +131,14 @@ data class HouseObject(
     val y: Int,
     val type: HouseObjectType,
     val room: HouseRoom = HouseRoom.MAIN,
-    val placedAtEpochMillis: Long = 0L
+    val placedAtEpochMillis: Long = 0L,
+    val rotationDegrees: Int = 0
 )
+
+sealed interface HouseItemEdit {
+    data class Rotate(val degrees: Int) : HouseItemEdit
+    data object Delete : HouseItemEdit
+}
 
 @Serializable
 data class HouseState(

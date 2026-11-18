@@ -13,6 +13,7 @@ import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.studygrove.app.R
+import com.studygrove.app.data.model.furnitureAngle
 import kotlin.math.roundToInt
 
 /** All sheets use density-independent source pixels and row-major frame order. */
@@ -23,6 +24,8 @@ internal enum class PixelSheet(val resource: Int, val width: Int = 48, val heigh
     Motion(R.drawable.garden_motion),
     Grass(R.drawable.garden_ground),
     Furniture(R.drawable.house_furniture),
+    FurnitureTurnsA(R.drawable.house_turns_a),
+    FurnitureTurnsB(R.drawable.house_turns_b),
     House(R.drawable.house_materials),
     Partitions(R.drawable.house_partitions),
     Avatar(R.drawable.avatar_layers, 32, 40),
@@ -136,3 +139,10 @@ internal val furnitureFrames = frameIndices("""
     scholar_sofa_set planet_mobile grandfather_clock master_library_wall
     celestial_reading_throne eternal_scholar_desk
 """)
+
+// Rotated sheets hold eight views per row and follow the shop furniture sheet order.
+internal fun furnitureView(frame: Int, degrees: Int): Pair<PixelSheet, Int> {
+    val rowCount = 28
+    val sheet = if (frame < rowCount) PixelSheet.FurnitureTurnsA else PixelSheet.FurnitureTurnsB
+    return sheet to (frame % rowCount * 8 + furnitureAngle(degrees) / 45)
+}

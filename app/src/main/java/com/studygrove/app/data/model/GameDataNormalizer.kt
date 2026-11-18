@@ -179,7 +179,8 @@ private fun HouseState.migrateToFixedRoomSizes(existingInventory: List<Inventory
 
         if (isValidPlacement) {
             occupiedTiles += tile
-            keptObjects += houseObject
+            val angle = furnitureAngle(houseObject.rotationDegrees)
+            keptObjects += if (angle == houseObject.rotationDegrees) houseObject else houseObject.copy(rotationDegrees = angle)
         } else if (isKnownItem) {
             returnedObjects += houseObject
         }

@@ -392,7 +392,13 @@ fun InventoryItemSprite(item: ShopItem?, modifier: Modifier = Modifier) {
 @Composable
 fun HouseObjectSprite(houseObject: HouseObject, modifier: Modifier = Modifier) {
     val item = ShopCatalog.byId(houseObject.shopItemId)
-    PixelItemSprite(item = item, type = item?.gardenObjectType, growthReady = true, modifier = modifier)
+    val frame = furnitureFrames[item?.visualKey]
+    if (frame != null) {
+        val (sheet, index) = furnitureView(frame, houseObject.rotationDegrees)
+        PixelTile(sheet, index, modifier)
+    } else {
+        PixelItemSprite(item = item, type = null, growthReady = true, modifier = modifier)
+    }
 }
 
 private fun DrawScope.drawPixelBadge(unlocked: Boolean) {
